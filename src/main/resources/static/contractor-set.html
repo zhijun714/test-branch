@@ -1,0 +1,90 @@
+<html>
+<head>
+    <meta charset="utf-8">
+    <script src="jquery-3.5.1.min.js"></script>
+</head>    
+<body>
+
+        <form id="update">
+            <input type="text" id="name" value="恒拓开源网络技术有限公司"> <input type="button" value="查询用户" id="search">
+
+			<p>
+			<h4>请选择用户：</h4>
+			<div id="userAccountInfo">
+			</div>
+			<hr>
+			<div id="contractorInfo" style="color: #FD8554">
+			</div>
+			
+			<hr>
+			
+			会员等级：
+			<select name="member_key_">
+				<option value="GOLD_MEMBER">金牌会员</option>
+				<option value="SILVER_MEMBER">银牌会员</option>
+				<option value="BRONZE_MEMBER">临时会员</option>
+			</select>
+			到期时间：<input type="text" name="expire_time_" placeholder="如：2020-12-22"/>
+			
+			<input type="button" id="submit" value="提交">
+        </form>
+
+        <script>
+            $(function(){
+                $('#search').on('click', function(){
+                    $.get('/bi/other/user-account/findByName', {"name": $('#name').val()}, function(data) {
+                    	$('#userAccountInfo').html('');
+
+                    	if (data.data.length==0) {
+                            alert('没有查到数据');
+                        } else {
+                            $(data.data).each(function(){
+                                $('#userAccountInfo').append('<div><input type="radio" name="userAccountId" value="'+this.id_+'"> 昵称：'+this.nickname_+' ---- 真实姓名： ' + this.name_+"</div>");
+                            })
+                        }
+                    });
+                });
+                
+                $('#update').on('click', "[name=userAccountId]", function() {
+                	var userAccountId = $("input[name=userAccountId]:checked").val();
+                	
+                	$.get('/bi/other/user/contractor/findByUserAccountId', {"userAccountId": userAccountId}, function(data) {
+                		$("#contractorInfo").html('');
+                		if (!data.data) {
+                			$("#contractorInfo").html('<h5>该用户还不是会员，选择会员等级、到期时间添加吧</h5>');
+                        } else {
+                            $("#contractorInfo").html('<div>\
+                            	会员等级：'+data.data.member_key_+'<p>\
+                            	到期时间：'+data.data.expire_time_+'\
+                            	</div>\
+                            	');
+                        }
+                    });
+                })
+                
+                $("#submit").on('click', function() {
+                	var userAccountId = $("input[name=userAccountId]:checked").val();
+					var member_key_ = $("select[name=member_key_]").val();
+					var expire_time_ = $("input[name=expire_time_]").val() + ' 23:59:59';
+					
+					console.log(userAccountId, member_key_, expire_time_);
+					
+					$.post('/bi/other/user/contractor/update', {
+								'user_account_id_': userAccountId,
+								'member_key_': member_key_,
+								'expire_time_': expire_time_
+								}, function(data){
+									console.log(data);
+									if (data.code == 0) {
+										alert('添加成功， 去OMS核查一下吧！');
+										$("select[name=member_key_]").val('');
+										$("input[name=expire_time_]").val('');
+									} else {
+										alert('添加失败');
+									}
+								});
+                });
+            })
+        </script>
+    </body>
+</html>

@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.oschina.zb.bi.app.mapper.ProjectFinishDataMapper">
+	<sql id="date_calc">
+		<if test="params.dateLevel==1"> <!-- 按年份查询 -->
+			CONCAT(YEAR(p.`status_last_time_`), '年') AS 'date',
+		</if>
+		<if test="params.dateLevel==2"> <!-- 按照季度查询 -->
+			CONCAT(YEAR(p.`status_last_time_`), '年第', CEIL((MONTH(p.`status_last_time_`))/3), '季度') AS 'date',
+		</if>
+		<if test="params.dateLevel==3"> <!-- 按照月份查询 -->
+			CONCAT(YEAR(p.`status_last_time_`), '年', MONTH(p.`status_last_time_`), '月') AS 'date',
+		</if>
+	</sql>
+	
+	<sql id="date_condition">
+		<if test="params.beginDate!=null and params.beginDate!=''">
+			<![CDATA[ and p.status_last_time_ >=  STR_TO_DATE( #{params.beginDate} ,'%Y-%m')]]>
+		</if>
+		<if test="params.endDate!=null and params.endDate!=''">
+			<![CDATA[ and p.status_last_time_ < STR_TO_DATE( #{params.endDate},'%Y-%m')]]>
+		</if>
+	</sql>		
+	
+	<sql id="date_group">
+		YEAR (p.status_last_time_)
+		<if test="params.dateLevel==1">	
+		</if>	
+		<if test="params.dateLevel==2">
+		,CEIL(MONTH(p.status_last_time_) / 3 )
+		</if>	
+		<if test="params.dateLevel==3">
+		,MONTH (p.status_last_time_)
+		</if>
+	</sql>	
+	
+	<!-- 项目类型统计 -->
+	<select id="type" resultType="java.util.Map">
+		SELECT
+			<include refid="date_calc"/>
+			IFNULL(SUM(IF(ps.skill_='移动应用',1,0)),0) AS 'mobile',
+			IFNULL(SUM(IF(ps.skill_='H5应用',1,0)),0) AS 'h5',
+			IFNULL(SUM(IF(ps.skill_='微信应用',1,0)),0) AS 'weixin',
+			IFNULL(SUM(IF(ps.skill_='企业应用',1,0)),0) AS 'company',
+			IFNULL(SUM(IF(ps.skill_='WEB应用',1,0)),0) AS 'web',
+			IFNULL(SUM(IF(ps.skill_='工具应用',1,0)),0) AS 'tool',
+			IFNULL(SUM(IF(ps.skill_='桌面应用',1,0)),0) AS 'desktop',	
+			IFNULL(SUM(IF(ps.skill_='嵌入式应用',1,0)),0) AS 'embedded',
+			IFNULL(SUM(IF(ps.skill_='游戏开发',1,0)),0) AS 'game',
+			IFNULL(SUM(IF(ps.skill_='设计',1,0)),0) AS 'design',
+			IFNULL(SUM(IF(ps.skill_='培训咨询',1,0)),0) AS 'train',
+			IFNULL(SUM(IF(ps.skill_='其它',1,0)),0) AS 'other',
+			IFNULL(SUM(IF(pc.employer_account_type_=1,1,0)),0) AS 'personalEmployer',
+			IFNULL(SUM(IF(pc.employer_account_type_=2,1,0)),0) AS 'companyEmployer',
+			IFNULL(SUM(IF(pc.contractor_account_type_=1,1,0)),0) AS 'personalContractor',
+			IFNULL(SUM(IF(pc.contractor_account_type_=2,1,0)),0) AS 'companyContractor'
+		FROM
+			project AS p
+		INNER JOIN
+			project_contract AS pc ON p.id_ = pc.project_id_
+			<!-- 状态  3双方已确认(合同签订)  6合同终止 -->
+			AND pc.status_ IN (3, 6)
+		INNER JOIN 
+			project_skill AS ps ON ps.project_id_=p.id_ AND ps.type_=1
+		WHERE
+			p.status_ IN (5,7)
+		<include refid="date_condition"/>
+		GROUP BY 
+		<include refid="date_group"/>
+		ORDER BY date ASC
+	</select>
+	
+	<!-- 项目进度统计-->
+	<select id="schedule" resultType="java.util.Map">
+		SELECT
+			<if test="params.dateLevel==1">
+			CONCAT(YEAR (pwp.status_last_time_),'年') AS date,
+			</if>	
+			<if test="params.dateLevel==2">
+			CONCAT(YEAR (pwp.status_last_time_),'年第',CEIL(MONTH(pwp.status_last_time_) / 3 ),'季度') AS date,
+			</if>	
+			<if test="params.dateLevel==3">
+			CONCAT(YEAR (pwp.status_last_time_),'年',MONTH (pwp.status_last_time_),'月') AS date,
+			</if>
+			<![CDATA[ SUM(IF(pwp.status_last_time_ >= pwp.plan_end_time_ AND pwp.status_last_time_ <= date_add(pwp.plan_end_time_ ,interval 1 week),1,0)) AS normalCount,]]>
+			<![CDATA[ SUM(IF(pwp.status_last_time_ < pwp.plan_end_time_,1,0)) AS beforeCount,]]>
+			<![CDATA[ SUM(IF(pwp.status_last_time_ > date_add(pwp.plan_end_time_ ,interval 1 week),1,0)) AS laterCount]]>
+		FROM
+			project_work_plan AS pwp
+		WHERE
+			pwp.id_ IN (
+				SELECT
+					max(pwp.id_)
+				FROM
+					project_work_plan AS pwp
+				INNER JOIN project AS p ON pwp.project_id_ = p.id_
+				WHERE
+					pwp.status_ = 8
+				AND
+				    p.status_ in (5,7)	
+				GROUP BY
+					pwp.project_id_
+			)
+		AND	
+			<![CDATA[ pwp.status_last_time_ >= STR_TO_DATE( #{params.beginDate} ,'%Y-%m') ]]>
+		AND 
+			<![CDATA[ pwp.status_last_time_ < STR_TO_DATE( #{params.endDate} ,'%Y-%m')   ]]>
+		GROUP BY 
+			YEAR (pwp.status_last_time_)
+			<if test="params.dateLevel==1">	
+			</if>	
+			<if test="params.dateLevel==2">
+			,CEIL(MONTH(pwp.status_last_time_) / 3 )
+			</if>	
+			<if test="params.dateLevel==3">
+			,MONTH (pwp.status_last_time_)
+			</if>	
+		ORDER BY
+			date ASC	
+	</select>
+	
+	<!-- 项目金额统计-合同总额 -->
+	<select id="contractTotalMoney" resultType="java.util.Map">
+		SELECT 
+			<include refid="date_calc"/>
+			IFNULL(ROUND(SUM(c.`money_`) / 100,2),0) as contractTotalMoney			
+		FROM 
+			project p INNER JOIN project_contract c 
+				ON p.`id_`=c.`project_id_` AND c.`status_` IN (3, 6)   <!-- 3合同已完成   6合同已终止 -->
+		WHERE 
+			p.`status_` IN (5, 7) <!-- 5 项目正常完成   7项目终止 -->
+			<include refid="date_condition"/>
+		GROUP BY <include refid="date_group"/>
+	</select>	
+	
+	<!-- 项目金额统计-已托管总额 -->
+	<select id="hostedTotalMoney" resultType="java.util.Map">
+		SELECT  
+			<include refid="date_calc"/>
+		    IFNULL(ROUND(SUM(wp.`money_`) / 100,2),0) as hostedTotalMoney		   
+		FROM 
+			project p INNER JOIN project_work_plan wp ON p.`id_`=wp.`project_id_`
+		WHERE
+			p.`status_` IN (5, 7) <!-- 5 项目正常完成   7项目终止 -->
+			AND wp.`hosting_status_` = 2  <!-- 2 工作阶段已托管费用 -->
+			<include refid="date_condition"/>
+		GROUP BY 
+			<include refid="date_group"/>
+	</select>
+	
+	<!-- 项目金额统计-已解冻总额 -->
+	<select id="withdrawTotalMoney" resultType="java.util.Map">
+		SELECT  
+		 	<include refid="date_calc"/>
+		     IFNULL(ROUND(SUM(wp.`money_`) / 100,2),0) as withdrawTotalMoney		     
+		FROM 
+			project p INNER JOIN project_work_plan wp ON p.`id_`=wp.`project_id_`
+		WHERE
+			p.`status_` IN (5, 7) <!-- 5 项目正常完成   7项目终止 -->
+			AND wp.`money_thaw_` = 2  <!-- 2 工作阶段已解冻费用 -->
+			<include refid="date_condition"/>
+		GROUP BY <include refid="date_group"/>
+	</select>
+	
+	<!--项目平均值-单价 -->
+	<select id="averageProjectPrice" resultType="java.util.Map">
+		SELECT  
+		  	<include refid="date_calc"/>
+		     ROUND(SUM(wp.`money_`) /100/ COUNT(DISTINCT p.`id_`), 2) as avgPrice
+		FROM 
+			project p INNER JOIN project_work_plan wp ON p.`id_`=wp.`project_id_`
+		WHERE
+			p.`status_` IN (5, 7) <!-- 5 项目正常完成   7项目终止 -->
+			AND wp.`status_` = 8  <!-- 8 已完成的工作阶段 -->
+			<include refid="date_condition"/>
+		GROUP BY <include refid="date_group"/>
+	</select>
+	
+	<!-- 项目平均值-实施周期 -->
+	<select id="averageImplementationCycle" resultType="java.util.Map">
+		SELECT 
+			<include refid="date_calc"/>
+			ROUND(SUM(TO_DAYS(p.status_last_time_)-TO_DAYS(c.`contract_sign_time_`)  ) / COUNT(p.id_), 1) as avgImplementationCycle			
+		FROM 
+			project p INNER JOIN project_contract c 
+				ON p.`id_`=c.`project_id_` AND c.`status_` IN (3, 6)   <!-- 3合同已完成   6合同已终止 -->
+		WHERE 
+			p.`status_` IN (5, 7) <!-- 5 项目正常完成   7项目终止 -->
+			<include refid="date_condition"/>
+		GROUP BY<include refid="date_group"/>
+	</select>
+	
+	<!-- 项目平均值-竞标周期 -->
+	<select id="averageApplyCycle" resultType="java.util.Map">
+		SELECT 
+			<include refid="date_calc"/>
+			ROUND(SUM(TO_DAYS(c.contract_sign_time_)-TO_DAYS(p.`publish_time_`)  ) / COUNT(p.id_), 1) as avgApplyCycle			
+		FROM 
+			project p INNER JOIN project_contract c 
+				ON p.`id_`=c.`project_id_` AND c.`status_` IN (3, 6)  <!-- 3合同已完成   6合同已终止 -->
+		WHERE 
+			p.`status_` IN (5, 7) <!-- 5 项目正常完成   7项目终止 -->
+			<include refid="date_condition"/>
+		GROUP BY <include refid="date_group"/>
+	</select>
+	
+	<!--项目平均值-报名数量 -->
+	<select id="averageApplyCount" resultType="java.util.Map">
+		SELECT 
+			<include refid="date_calc"/>
+			ROUND(SUM(p.apply_count_) / COUNT(*), 1) as avgApplyCount			
+		FROM 
+			project p 
+		WHERE 
+			p.`status_` IN (5, 7) <!-- 5 项目正常完成   7项目终止 -->
+			<include refid="date_condition"/>
+		GROUP BY 
+		<include refid="date_group"/>
+	</select>		
+	
+	<!-- 项目评价统计-->
+	<select id="comment" resultType="java.util.Map">
+		SELECT
+			<include refid="date_calc"/>
+			SUM(IF(cci.score_ = 5 ,1,0)) AS good,
+			SUM(IF(cci.score_ = 4 or cci.score_ = 3 ,1,0)) AS normal,
+			SUM(IF(cci.score_ = 2 or cci.score_ = 1 ,1,0)) AS bad
+		FROM 
+			project AS p
+		INNER JOIN 
+			comm_comment AS cc ON cc.buss_id_ =p.id_ AND cc.buss_type_ = 1
+		INNER JOIN 
+			comm_comment_item AS cci ON cc.id_ =cci.comment_id_ AND cci.title_ = '工作质量'
+		WHERE
+			p.status_ in (5,7) 
+		AND	
+			<![CDATA[ p.status_last_time_ >= STR_TO_DATE( #{params.beginDate} ,'%Y-%m') ]]>
+		AND 
+			<![CDATA[ p.status_last_time_ < STR_TO_DATE( #{params.endDate} ,'%Y-%m')   ]]>
+		GROUP BY 
+			<include refid="date_group"/>	
+		ORDER BY
+			date ASC	
+	</select>
+</mapper>

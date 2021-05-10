@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.oschina.zb.bi.app.mapper.ExportMapper">	
+	<!--导出进账记录-->
+	<select id="revenue" resultType="java.util.Map">
+		SELECT 
+			ft.transaction_no_ AS 'transaction_no_',
+			ua.`nickname_`,
+			ua.`name_`, 
+			ROUND(pr.`amount_` /100,2) AS `amount_`,
+			pr.`notify_time_`, 			
+			ft.biz_title_,		
+			IF(pr.`pay_type_`=2, SUBSTRING_INDEX(SUBSTRING_INDEX(notify_raw_data_, ', ', 5), '=', -1), 
+			   IF (pr.`pay_type_`=1, SUBSTRING_INDEX(SUBSTRING_INDEX(notify_raw_data_, ', ', 4), '=', -1), 
+			      '')
+			 ) pay_account_,				
+			pr.notify_trade_no_ AS 'trade_no_',			
+			CASE ft.`third_party_pay_type_`
+				WHEN 1 THEN '微信'
+				WHEN 2 THEN '支付宝'
+				WHEN 3 THEN 'U付'
+			END AS `pay_type_`,		
+			CASE 
+				WHEN ft.`biz_category_` = 1 THEN '余额充值'
+				WHEN ft.`biz_category_` = 2 THEN '系统充值'
+				WHEN ft.`biz_category_` = 4 THEN '托管赏金进账'
+				WHEN ft.`biz_category_` = 9 THEN '托管项目保证金进账'
+				WHEN ft.`biz_category_` = 10 THEN '服务保证金进账'
+				WHEN ft.`biz_category_` IN (6,7,8) THEN '开源中国博客打赏'
+				WHEN ft.`biz_category_` = 10001 THEN '会员费用进账'
+				WHEN ft.`biz_category_` = 10002 THEN '兑换手机号进账'
+				WHEN ft.`biz_category_` = 10100 THEN '项目服务费进账'
+			END AS transactionMatters,
+			IF (r.`reward_no_` IS NOT NULL, r.`reward_no_`, IF(p.project_no_ IS NOT NULL, p.project_no_, IF(ft.biz_id_ !=0, ft.biz_id_, ''))) AS 'biz_id_',
+			IF (p.`project_no_` IS NOT NULL, p.`project_no_`, IF(ft.biz_id_ !=0, ft.biz_id_, '')) AS 'biz_id_',
+			IF (r.`reward_no_` IS NOT NULL, '悬赏', IF(p.project_no_ IS NOT NULL, '项目', '')) as 'reward_type_',
+			CASE r.`status_`
+			  WHEN 9 THEN '已终止'
+			  WHEN 4 THEN '已完成'
+			  WHEN 3 THEN '进行中'
+			END as 'reward_status_'
+		FROM fund_transaction ft 
+		INNER JOIN pay_record pr ON ft.`transaction_no_` = pr.`out_trade_no_` AND pr.`pay_status_` = 2
+		INNER JOIN user_account ua ON ft.`user_account_id_` = ua.`id_` 
+		LEFT JOIN reward r ON ft.`biz_id_` = r.id_	AND ft.biz_category_ = 4
+		LEFT JOIN project p on ft.biz_id_ = p.id_ and ft.biz_category_ = 9
+		WHERE 
+			ft.`biz_category_` IN (1,2,4,9,6,7,8,10, 10001, 10002, 10100)
+		<if test="params.beginDate!=null and params.beginDate!=''">
+			AND <![CDATA[ pr.notify_time_ >= STR_TO_DATE( #{params.beginDate} ,'%Y-%m-%d') ]]>
+		</if>
+		<if test="params.endDate!=null and params.endDate!=''">
+			AND <![CDATA[ pr.notify_time_ <= STR_TO_DATE( #{params.endDate} ,'%Y-%m-%d %H:%i:%s') ]]>
+		</if>
+		ORDER BY pr.notify_time_ ASC;
+	</select>
+	<!--导出出账记录-->
+	<select id="expenditure" resultType="java.util.Map">
+	SELECT 
+		ft.`transaction_no_`, 
+		ua.`nickname_`,
+		certification.name_,
+		certification.document_num_,
+		CONCAT(IFNULL(fw.ali_pay_account_, ''), 
+		IFNULL(fw.umpay_bank_name_, ''),
+		IFNULL(fw.umpay_bank_card_number_, '')) AS card_num_,
+		ft.`amount_` / 100 AS `amount_`,
+		IF ( ft.biz_category_=11, '余额提现', 
+			IF (ft.biz_category_=12, '系统提现', 
+				IF (ft.biz_category_=13, '赏金退款', 
+				    IF(ft.biz_category_=14, '项目保证金退款',
+				        IF(ft.biz_category_=15, '项目保证金解冻', 
+				        	IF(ft.biz_category_=16, '服务保证金退款', '')
+				        )
+				    )
+			    )
+			)
+		) AS 'type_',
+		ft.finished_at_ AS finished_at_,
+		CASE 
+			third_party_pay_type_
+			WHEN 1 THEN '微信'
+			WHEN 2 THEN '支付宝'
+			WHEN 3 THEN 'U付'
+		END 'pay_type_'		
+	FROM 
+		fund_transaction ft 
+		INNER JOIN user_account ua ON ft.`user_account_id_` = ua.`id_`		
+		-- 这儿查询用户的实名认证信息
+		LEFT JOIN (
+			SELECT 
+				uacc.`user_account_id_`, 
+				uacc.`name_`,
+				uacc.`business_licence_num_` AS document_num_
+			FROM 
+				user_account_certification_company uacc 			
+			UNION ALL			
+			SELECT 
+				uacp.user_account_id_,
+				uacp.name_,
+				uacp.id_card_num_ AS document_num_
+			FROM 
+				user_account_certification_personal uacp
+		) certification ON ft.`user_account_id_`=certification.user_account_id_		
+		-- 这两行用于查询提现账号信息
+		LEFT JOIN fund_withdraw fw ON ft.transaction_no_=fw.transaction_no_
+		LEFT JOIN fund_refund fr ON ft.transaction_no_=fr.transaction_no_	
+		-- 这两行用于查询提现的外部交易流水号
+		LEFT JOIN pay_ali_transfer pat ON ft.transaction_no_=pat.request_out_trade_no_ AND pat.pay_status_=2
+		LEFT JOIN pay_um_transfer put ON ft.transaction_no_=put.request_out_trade_no_ AND put.pay_status_=2		
+		-- 用于查询退款的原支付流水号
+		LEFT JOIN pay_record pr ON ft.transaction_no_=pr.out_trade_no_ AND pr.pay_status_=2		
+	WHERE 
+		ft.`biz_category_` IN (11, 12, 13, 14, 15, 16)
+		AND ft.trade_status_=2
+		<if test="params.beginDate!=null and params.beginDate!=''">
+			AND <![CDATA[ ft.finished_at_ >= STR_TO_DATE( #{params.beginDate} ,'%Y-%m-%d') ]]>
+		</if>
+		<if test="params.endDate!=null and params.endDate!=''">
+			AND <![CDATA[ ft.finished_at_ <= STR_TO_DATE( #{params.endDate} ,'%Y-%m-%d %H:%i:%s') ]]>
+		</if>
+	ORDER BY 
+		finished_at_ ASC	
+	</select>
+	
+	<!--导出项目列表-->
+	<select id="projectList"  resultType="java.util.Map">
+		SELECT
+			p.id_  AS id,
+			p.project_no_ AS projectNo,
+			p.name_ AS name,
+			p.user_account_id_ AS employerAccountId,
+			pc.contractor_account_id_ AS contractorAccountId,
+			pci.contractor_account_name_ AS contractorAccountName,
+			ROUND(p.budget_min_/100) AS budgetMin,
+			ROUND(p.budget_max_/100) AS budgetMax,
+			p.cycle_ AS cycle,
+			p.cycle_name_ AS cycleName,
+			p.specialist_id_ AS specialistId,										   
+			CASE p.status_
+				WHEN 1 THEN '草稿'
+				WHEN 2 THEN '待托管'
+				WHEN 3 THEN '竞标中'
+				WHEN 4 THEN '实施中'
+				WHEN 5 THEN '已完成'
+				WHEN 6 THEN '仲裁中'
+				WHEN 7 THEN '已终止'
+				WHEN 8 THEN '已关闭'
+				ELSE '状态错误' END AS status,
+			p.status_last_time_ AS statusLastTime,
+			CASE
+				WHEN p.publish_time_  IS NULL THEN '未发布' 
+				ELSE p.publish_time_ END AS publishTime,
+			p.apply_count_ AS applyCount,			
+			CASE 
+				WHEN p.status_ = 5 THEN p.status_last_time_
+				WHEN p.status_ = 7 THEN p.status_last_time_
+				WHEN p.status_ = 8 THEN p.status_last_time_
+				WHEN p.status_ = 9 THEN p.status_last_time_
+			 	ELSE '未结束' END AS doneTime,			
+			ps.skill_ AS applicationArea,
+			CASE p.visible_
+				WHEN 1 THEN '否'
+				ELSE '是' END AS visible,
+			CASE p.is_internal_
+				WHEN 1 THEN '是'
+				ELSE '否' END AS isInternal,
+			CASE p.publish_status_
+				WHEN 1 THEN '是'
+				ELSE '否' END  AS publishStatus,
+			CASE p.deposit_hosting_status_
+				WHEN 1 THEN '未托管' 
+				ELSE '已托管' END AS depositHostingStatus,
+			p.handle_status_ AS handleStatus,
+			CASE
+				WHEN p.handle_time_  IS NULL THEN '未受理' 
+				ELSE p.handle_time_ END AS handleTime,
+			CASE
+				WHEN pc.contract_sign_time_ IS NULL THEN '未签章' 
+				ELSE pc.contract_sign_time_ END AS contractSignTime,
+			ROUND(pc.money_/100) AS contractMoney,
+			ROUND(sum(pwp.money_)/100) AS actualHostedMoney,
+			ROUND(sum(pwp2.money_)/100) AS actualThrawMoney,
+			ua.nickname_ AS employerNickname	
+		FROM project AS p
+		LEFT JOIN project_contract AS pc ON pc.project_id_ = p.id_ 
+			AND pc.status_ IN ( 2,3,6 )
+		<!-- 接包方姓名 -->
+		LEFT JOIN project_contract_info as pci on pc.contract_info_id_ = pci.id_
+		<!-- 应用领域 -->
+		LEFT JOIN project_skill AS ps ON ps.project_id_ = p.id_ 
+			AND type_ = 1
+		<!-- 实际托管总额 -->
+		LEFT JOIN project_work_plan AS pwp ON pwp.project_id_ = p.id_
+			AND pwp.hosting_status_ = 2
+			AND pwp.status_  IN ( 4,6,7,8,11 )
+		<!-- 实际解冻总额 -->
+		LEFT JOIN project_work_plan AS pwp2 ON pwp2.id_ = pwp.id_
+			AND pwp2.money_thaw_ = 2
+		<!-- 发包方姓名 -->	
+		LEFT JOIN user_account AS ua ON p.user_account_id_ = ua.id_
+		GROUP BY p.id_ 		
+		ORDER BY p.status_last_time_ DESC
+	</select>	
+	
+	<!--导出悬赏列表-->
+	<select id="rewardList" resultType="java.util.Map">
+		SELECT
+			r.specialist_id_ AS specialistId,
+			r.reward_no_ AS rewardNo,
+			rs.skill_ AS applicationArea,
+			r.name_ AS name,
+			ua.nickname_ AS employerNickname,
+			CASE r.bounty_hosting_status_ WHEN 1 THEN '未托管' ELSE '已托管' END AS bountyHostingStatus,
+			IFNULL(r.publish_time_,'未托管') AS publishTime,
+			r.expected_duration_ AS expectedDuration,
+			ROUND(r.bounty_/100) AS bounty,
+			IFNULL(r.apply_count_,'-') AS applyCount,
+			IFNULL(ua2.nickname_,'-') AS contractorNickname,		
+			CASE r.status_  
+				WHEN 1 THEN '草稿'
+				WHEN 2 THEN '待托管'
+				WHEN 3 THEN '进行中'
+				WHEN 4 THEN '已完成'
+				WHEN 6 THEN '仲裁中'
+				WHEN 7 THEN '已下架'
+				WHEN 8 THEN '已关闭'
+				WHEN 9 THEN '已终止'
+				ELSE '-' END AS status
+		FROM
+			reward AS r
+		LEFT JOIN reward_apply AS ra ON r.id_ = ra.reward_id_	AND ra.status_ = 3
+		<!-- 应用领域 -->
+		LEFT JOIN reward_skill AS rs ON rs.reward_id_ = r.id_ AND type_ = 1
+		<!-- 下架原因 -->
+		LEFT JOIN reward_refused_reason AS rrr ON rrr.reward_id_=r.id_ AND business_type_ = 6
+		<!-- 发包方姓名 -->	
+		LEFT JOIN user_account AS ua ON r.user_account_id_ = ua.id_
+		<!-- 发包方姓名 -->	
+		LEFT JOIN user_account AS ua2 ON ra.user_account_id_ = ua2.id_
+		WHERE 1=1
+		GROUP BY r.id_
+		ORDER BY r.status_last_time_ DESC
+	</select>
+</mapper>

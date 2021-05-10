@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.oschina.zb.bi.app.mapper.OMSUserExcellentDeveloperMapper">	
+	<!-- 优质开发商列表 -->
+	<select id="manageList" resultType="org.oschina.zb.bi.app.service.dto.ExcellentDeveloperManageDTO">
+	SELECT *
+	FROM (	
+		SELECT 
+			ued.id_ AS id,
+			ua.id_ AS userAccountId,
+			ua.nickname_ AS nickname,
+			ua.name_ AS name,
+			CONCAT(ua.province_,'-',ua.city_ ) AS location,
+			ued.status_ as status,
+			ued.level_key_ AS levelKey,
+			ued.level_name_ AS levelName,
+			ued.audit_time_ AS auditTime,
+			ccas.avg_score_ AS commentAvgScore,
+			COUNT(DISTINCT crptu.id_) AS recommendCount,
+			COUNT(DISTINCT crptu2.id_) AS recommendApplyCount,
+			GROUP_CONCAT(DISTINCT CASE uas.type_ WHEN 1 THEN uas.skill_ END) AS applicationArea,
+			GROUP_CONCAT(DISTINCT CASE uas.type_ WHEN 2 THEN uas.skill_ END) AS projectType,
+			GROUP_CONCAT(DISTINCT CASE uas.type_ WHEN 3 THEN uas.skill_ END) AS developmentLanguage,
+			GROUP_CONCAT(DISTINCT CASE uas.type_ WHEN 4 THEN uas.skill_ END) AS developmentSkills,
+			GROUP_CONCAT(DISTINCT CASE uas.type_ WHEN 5 THEN uas.skill_ END) AS productMiddleware,
+			GROUP_CONCAT(DISTINCT CASE uas.type_ WHEN 6 THEN uas.skill_ END) AS role,
+			CASE WHEN crdtw.id_ IS NOT NULL THEN 1 ELSE 2 END AS isRecommendToWeixin
+		FROM user_excellent_developer AS ued 
+		INNER JOIN user_account AS ua ON ued.user_account_id_ = ua.id_
+		LEFT JOIN user_account_skill AS uas ON ua.id_ = uas.user_account_id_
+		LEFT JOIN comm_comment_avg_score AS ccas ON ued.user_account_id_ = ccas.user_account_id_ AND ccas.role_type_ = 2		
+		LEFT JOIN comm_recommend_project_to_user AS crptu ON crptu.user_account_id_ = ued.user_account_id_	
+		LEFT JOIN comm_recommend_project_to_user AS crptu2 ON crptu2.user_account_id_ = ued.user_account_id_ AND crptu2.is_apply_ = 1
+		LEFT JOIN comm_recommend_developer_to_weixin AS crdtw ON crdtw.user_excellent_developer_id_ = ued.id_
+		<where>	
+			1 = 1
+			<if test="manageVo.status != null and manageVo.status == 2">
+				AND ued.status_ = 2				
+			</if>
+			<if test="manageVo.status != null and manageVo.status != 2">
+				AND ued.status_ != 2				
+			</if>
+			<if test="manageVo.nickname != null and manageVo.nickname != ''">
+			AND ua.nickname_ like CONCAT("%",#{manageVo.nickname},'%') 
+			</if>
+			<if test="manageVo.name != null and manageVo.name != ''">
+			AND ua.name_ like CONCAT("%",#{manageVo.name},'%') 
+			</if>			
+<!-- 			<if test="manageVo.levelKey != null and manageVo.levelKey != ''"> -->
+<!-- 			AND ued.level_key_ like CONCAT("%",#{manageVo.levelKey},'%') -->
+<!-- 			</if> -->
+		    <if test="manageVo.levelKey != null and manageVo.levelKey != ''">
+			AND ued.level_key_ = #{manageVo.levelKey}
+			</if>
+			<if test="manageVo.beginAuditTime != null and manageVo.beginAuditTime != ''">
+			AND <![CDATA[ ued.audit_time_ >= STR_TO_DATE( #{manageVo.beginAuditTime} ,'%Y-%m-%d')]]>
+			</if>
+			<if test="manageVo.endAuditTime != null and manageVo.endAuditTime != ''">
+			AND <![CDATA[ ued.audit_time_ <= STR_TO_DATE( #{manageVo.endAuditTime} ,'%Y-%m-%d')]]>
+			</if>		
+			<if test="manageVo.isRecommendToWeixin == 1">
+			AND crdtw.id_ IS NOT NULL
+			</if>	
+			<if test="manageVo.isRecommendToWeixin == 2">
+			AND crdtw.id_ IS NULL
+			</if>		
+		</where>		
+		GROUP BY ued.user_account_id_
+		ORDER BY ued.audit_time_ DESC	
+	) AS t
+	WHERE 1=1
+		<if test="manageVo.location != null">
+		AND location like CONCAT("%",#{manageVo.location},'%')
+		</if>		
+		<if test="manageVo.applicationArea!=null">
+		AND applicationArea LIKE CONCAT('%',#{manageVo.applicationArea},'%')
+		</if>
+		<if test="manageVo.projectType!=null">
+		AND projectType LIKE CONCAT('%',#{manageVo.projectType},'%')
+		</if>
+		<if test="manageVo.developmentLanguage!=null">
+		AND developmentLanguage LIKE CONCAT('%',#{manageVo.developmentLanguage},'%')
+		</if>
+		<if test="manageVo.developmentSkills!=null">
+		AND developmentSkills LIKE CONCAT('%',#{manageVo.developmentSkills},'%')
+		</if>
+		<if test="manageVo.productMiddleware!=null">
+		AND productMiddleware LIKE CONCAT('%',#{manageVo.productMiddleware},'%')
+		</if>
+		<if test="manageVo.role!=null">
+		AND role LIKE CONCAT('%',#{manageVo.role},'%')
+		</if>
+		<if test="manageVo.commentAvgScore!=null">
+		AND commentAvgScore = #{manageVo.commentAvgScore}
+		</if>
+		<if test="manageVo.recommendCount!=null">
+		AND recommendCount = #{manageVo.recommendCount}
+		</if>
+		<if test="manageVo.recommendApplyCount!=null">
+		AND recommendApplyCount = #{manageVo.recommendApplyCount}
+		</if>
+	</select>
+	
+</mapper>

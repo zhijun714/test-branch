@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.oschina.zb.bi.app.mapper.OtherMapper">
+	<!-- 指定日期前的发包方数量 -->
+	<select id="userAccountFindByName" resultType="java.util.Map">
+		select id_, nickname_, name_ from user_account where name_ = #{name}
+	</select>
+	
+	<select id="userContractorFindByUserAccountId" resultType="java.util.Map">
+		select id_, user_account_id_, member_key_, expire_time_ from user_contractor_member where user_account_id_ = #{userAccountId}
+	</select>
+	
+	
+	<update id="userContractorUpdate">
+		update user_contractor_member set member_key_=#{member_key_}, expire_time_=#{expire_time_}, updated_at_=now() 
+		where user_account_id_ = #{user_account_id_}
+	</update>
+	
+	<insert id="userContractorInsert">
+		insert into user_contractor_member (user_account_id_, member_key_, expire_time_, created_at_, created_by_)
+		values (#{user_account_id_}, #{member_key_}, #{expire_time_}, now(), 0)
+	</insert>
+	
+</mapper>

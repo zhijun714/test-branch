@@ -1,0 +1,499 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.oschina.zb.bi.app.mapper.UserAccountMapper">
+	<sql id="date_calc">
+		<if test="params.dateLevel==1"> <!-- 按年份查询 -->
+			CONCAT(YEAR(u.${dateField}), '年') AS 'date',
+		</if>
+		<if test="params.dateLevel==2"> <!-- 按照季度查询 -->
+			CONCAT(YEAR(u.${dateField}), '年第', CEIL((MONTH(u.${dateField}))/3), '季度') AS 'date',
+		</if>
+		<if test="params.dateLevel==3"> <!-- 按照月份查询 -->
+			CONCAT(YEAR(u.${dateField}), '年', MONTH(u.${dateField}), '月') AS 'date',
+		</if>
+		<if test="params.dateLevel==4"> <!-- 按照周查询 -->
+			CONCAT(YEAR(u.${dateField}), '年', MONTH(u.${dateField}), '月',DAYOFMONTH(u.${dateField}),'日') AS 'date',
+		</if>
+		<if test="params.dateLevel==5"> <!-- 按照日查询 -->
+			CONCAT(YEAR(u.${dateField}), '年', MONTH(u.${dateField}), '月',DAYOFMONTH(u.${dateField}),'日') AS 'date',
+		</if>
+		<if test="params.dateLevel==6"> <!-- 按照小时查询 -->
+			CONCAT(HOUR(u.${dateField}),'时') AS 'date',
+		</if>
+	</sql>
+	
+	<sql id="date_condition">
+		<if test="params.beginDate!=null and params.beginDate!=''">
+			<![CDATA[ and u.${dateField} >=  STR_TO_DATE( #{params.beginDate} ,'%Y-%m')]]>
+		</if>
+		<if test="params.endDate!=null and params.endDate!=''">
+			<![CDATA[ and u.${dateField} < STR_TO_DATE( #{params.endDate},'%Y-%m')]]>
+		</if>
+	</sql>		
+	
+	<sql id="date_group">
+		YEAR (u.${dateField})
+		<if test="params.dateLevel==1">	
+		</if>	
+		<if test="params.dateLevel==2">
+		,CEIL(MONTH(u.${dateField}) / 3 )
+		</if>	
+		<if test="params.dateLevel==3">
+		,MONTH (u.${dateField})
+		</if>
+		<if test="params.dateLevel==4">
+		,WEEK (u.${dateField})
+		</if>
+		<if test="params.dateLevel==5">
+		,MONTH (u.${dateField}),DAYOFMONTH(u.${dateField})
+		</if>
+		<if test="params.dateLevel==6">
+		,MONTH (u.${dateField}),DAYOFMONTH(u.${dateField}),HOUR(u.${dateField})
+		</if>
+	</sql>
+
+	<!--Added by Wu Chengguo -->
+	<sql id="select_Where_Clause">
+		<where>
+			<if test="params.nickname != null">
+			  	and <![CDATA[ t.nickname like concat(#{params.nickname},"%") ]]>
+			</if>
+			<if test="params.name != null">
+				and <![CDATA[ t.name like concat(#{params.name},"%") ]]>
+			</if>
+			<if test="params.city !=null ">
+				and <![CDATA[ t.city like concat(#{params.city},"%") ]]>
+			</if>
+			<if test="params.email !=null ">
+				and <![CDATA[ t.email like concat(#{params.email},"%") ]]>
+			</if>
+			<if test="params.type !=null ">
+				and <![CDATA[ t.type = #{params.type} ]]>
+			</if>
+			<if test="params.certificationStatus !=null ">
+				and <![CDATA[ t.certificationStatus = #{params.certificationStatus} ]]>
+			</if>
+			<!--竞标数-->
+			<if test="params.jbs !=null ">
+				and <![CDATA[ t.jbs_ct = #{params.jbs} ]]>
+			</if>
+
+			<if test="params.jbs_ct !=null ">
+				and <![CDATA[ t.jbs_ct = #{params.jbs_ct} ]]>
+			</if>
+			<!--竞标数 End-->
+
+			<!--签单数-->
+			<if test="params.qds_ct !=null ">
+				and <![CDATA[ t.qds_ct = #{params.qds_ct} ]]>
+			</if>
+			<!--签单数 End-->
+
+			<!--发标数-->
+			<if test="params.fbs !=null ">
+				and <![CDATA[ t.fbs_ct = #{params.fbs} ]]>
+			</if>
+
+			<if test="params.fbs_ct !=null ">
+				and <![CDATA[ t.fbs_ct = #{params.fbs_ct} ]]>
+			</if>
+			<!--发标数 End -->
+
+			<!--中标数-->
+			<if test="params.zbs !=null ">
+				and <![CDATA[ t.zbs_ct = #{params.zbs} ]]>
+			</if>
+			<!--中标数 End-->
+			<if test="params.createdTime !=null ">
+				and <![CDATA[ t.createdTime like concat( #{params.email},"%") ]]>
+			</if>
+			<if test="params.mobile !=null ">
+				and <![CDATA[ t.mobile like concat(#{params.mobile},"%") ]]>
+			</if>
+			<if test="params.htje !=null ">
+				and <![CDATA[ t.htje = #{params.htje} ]]>
+			</if>
+			<if test="params.ysje !=null ">
+				and <![CDATA[ t.ysje = #{params.ysje} ]]>
+			</if>
+			<if test="params.totalCreditAmount !=null ">
+				and <![CDATA[ t.totalCreditAmount = #{params.totalCreditAmount} ]]>
+			</if>
+			<if test="params.creditType !=null ">
+				and <![CDATA[ t.creditType = #{params.creditType} ]]>
+			</if>
+			<if test="params.excellentDeveloperStatus !=null ">
+				and <![CDATA[ t.excellentDeveloperStatus = #{params.excellentDeveloperStatus} ]]>
+			</if>
+			<if test="params.rate !=null ">
+				and <![CDATA[ t.rate = #{params.rate} ]]>
+			</if>
+			<if test="params.level !=null ">
+				and <![CDATA[ t.level like concat("%",#{params.level},"%") ]]>
+			</if>
+			<if test="params.status !=null ">
+				and <![CDATA[ t.status = #{params.status} ]]>
+			</if>
+			<if test="params.pIntro !=null">
+				and <![CDATA[ t.pIntro like concat("%",#{params.pIntro},"%") ]]>
+			</if>
+			<if test="params.workCompany !=null">
+				and <![CDATA[ t.workCompany like concat("%",#{params.workCompany},"%") ]]>
+			</if>
+			<if test="params.cIntro !=null">
+				and <![CDATA[ t.cIntro like concat("%",#{params.cIntro},"%") ]]>
+			</if>
+			<if test="params.lan !=null">
+				and <![CDATA[ t.lan like concat("%",#{params.lan},"%") ]]>
+			</if>
+			<if test="params.midd !=null">
+				and <![CDATA[ t.midd like concat("%",#{params.midd},"%") ]]>
+			</if>
+			<if test="params.dom !=null">
+				and <![CDATA[ t.dom like concat("%",#{params.dom},"%") ]]>
+			</if>
+		</where>
+	</sql>
+
+	<!--接包用户-->
+	<select id="contractReceiver" resultType="java.util.HashMap">
+		select * from (
+			select ua.id_ id,ua.nickname_ nickname,ua.name_ `name`,ua.city_ city,ua.created_at_ createdTime,
+			u.mobile_ mobile,u.email_ email,ua.type_  type, ua.certification_status_ certificationStatus ,
+			ifnull(pa.ct,0) jbs_ct,ifnull(pas3.ct,0) zbs_ct,round(ifnull(pc_.money,0)/100) htje,round(ifnull(pwp.money,0)/100) ysje,ifnull(ual.member_key_,'') level,ifnull(bcua.rate,"0%") rate,
+			ifnull(ued.status_,0) excellentDeveloperStatus ,
+		    ifnull(uapi.intro_,'') as pIntro,ifnull(uapi.work_company_,'') as workCompany,
+			ifnull(uaci.intro_,'') as cIntro,ifnull(uasl.lan,'') as lan,ifnull(uasm.midd,'') as midd,ifnull(uasd.dom,'') as dom from
+			(
+				select id_,nickname_,name_,city_,created_at_,type_,certification_status_ from user_account where is_contractor_=1
+			) ua
+			left join (select user_account_id_,count(*) ct from project_apply group by user_account_id_ ) pa on pa.user_account_id_ = ua.id_
+			left join (select user_account_id_,count(*) ct from project_apply  where status_=3  group by user_account_id_) pas3 on pas3.user_account_id_ = ua.id_
+			left join (select pc.contractor_account_id_,sum(money_) money from project_contract pc where pc.status_=3 group by contractor_account_id_ ) pc_   on ua.id_=pc_.contractor_account_id_
+			left join (select sum(project_work_plan.money_) money,contractor_account_id_ from project_work_plan ,project_contract  where project_contract.id_= project_work_plan.contract_id_ and  money_thaw_=2
+				group by contractor_account_id_ ) pwp on pwp.contractor_account_id_=ua.id_
+			left join user_contractor_member  ual on ual.user_account_id_=ua.id_
+			left join (select id_,user_account_id_,status_ from user_excellent_developer ) ued on ua.id_=ued.user_account_id_
+			left join
+			(
+				select being_comment_user_account_id_,CONCAT(round(t1.hp/t2.ct * 100,0),'%') rate,hp,ct from (
+					select being_comment_user_account_id_, count(being_comment_user_account_id_) hp from comm_comment where being_comment_role_type_=2  and type_ =1 and buss_type_=1 group by being_comment_user_account_id_ ) t1
+					right join (select count(contractor_account_id_) ct,contractor_account_id_ from project_contract pc,project pr  where pr.id_= pc.project_id_ and pc.status_=5 group by contractor_account_id_) t2 on t1.being_comment_user_account_id_=t2.contractor_account_id_
+			) bcua on bcua.being_comment_user_account_id_=ua.id_
+			left join (select user_account_id_,email_,mobile_ from user_user_account uua,user ur where ur.id_ = uua.user_id_) u on u.user_account_id_ = ua.id_
+			left join user_account_personal_info uapi on uapi.user_account_id_ = ua.id_
+			left join user_account_company_info uaci on uaci.user_account_id_ = ua.id_
+			left join (select user_account_id_,group_concat(skill_ separator ',') lan from user_account_skill where type_=3 group by user_account_id_) uasl on uasl.user_account_id_ = ua.id_
+			left join (select user_account_id_,group_concat(skill_ separator ',') midd from user_account_skill where type_=5 group by user_account_id_) uasm on uasm.user_account_id_ = ua.id_
+			left join (select user_account_id_,group_concat(skill_ separator ',')  dom  from user_account_skill where type_=1 group by user_account_id_) uasd on uasd.user_account_id_ = ua.id_
+		) t
+		<include refid="select_Where_Clause" />
+	</select>
+
+	<!--发包用户-->
+	<select id="contractIssuing" resultType="java.util.HashMap">
+		select * from (
+			select ua.id_ id,u.mobile_ mobile,u.email_ email,
+			ua.nickname_ nickname,ua.name_ name,ua.city_ city,ua.created_at_ createdTime, ua.type_  type, ua.certification_status_  certificationStatus ,
+			ifnull(fbs.ct,0) fbs_ct,ifnull(pc_.ct,0) qds_ct,round(ifnull(pc_.money,0)/100) htje,round(ifnull(pwp.money,0)/100) ysje,round(ifnull(total_credit_amount_,0)/100) totalCreditAmount,credit_type_ creditType
+			from (
+				select id_,nickname_,name_,city_,created_at_,type_,certification_status_ from user_account where is_employer_=1
+			) ua
+			left join (select ua_.id_,count(p.id_) ct from user_account ua_   join project p on p.user_account_id_ = ua_.id_ group by ua_.id_ ) fbs on fbs.id_=ua.id_
+			left join (select pc.id_,pc.employer_account_id_,count(employer_account_id_) ct,sum(money_) money from project_contract pc where pc.status_=3 group by employer_account_id_ ) pc_  on ua.id_=pc_.employer_account_id_
+
+			left join (select sum(project_work_plan.money_) money,employer_account_id_ from project_work_plan ,project_contract  where project_contract.id_= project_work_plan.contract_id_ and  money_thaw_=2
+					group by employer_account_id_) pwp on pwp.employer_account_id_=ua.id_
+			left join (select total_credit_amount_,user_account_id_,credit_type_ from fund_account where type_=2) fa on fa.user_account_id_=pc_.employer_account_id_
+			left join (select user_account_id_,email_,mobile_ from user_user_account uua,user ur where ur.id_ = uua.user_id_) u on u.user_account_id_ = ua.id_
+		) t
+
+		<include refid="select_Where_Clause" />
+	</select>
+	<!--注册用户-->
+	<select id="userInfo" resultType="java.util.HashMap">
+		select * from (
+			select a.id_ userAccountId,a.nickname_ nickname,a.name_ name,u.mobile_ mobile,u.email_ email,a.city_ city ,a.created_at_ createdTime, a.type_ type, a.certification_status_ certificationStatus ,
+			ifnull(jbs.ct,0) jbs_ct,ifnull(fbs.ct,0) fbs_ct,a.status_ status
+			from user_account a
+			left join (select ua.id_,count(pa.id_) ct from user_account ua   join project_apply pa on pa.user_account_id_ = ua.id_ group by ua.id_ ) jbs on jbs.id_ = a.id_
+			left join (select ua.id_,count(p.id_)  ct from user_account ua   join project p on p.user_account_id_ = ua.id_ group by ua.id_ ) fbs on fbs.id_=a.id_
+			left join (select user_account_id_,email_,mobile_ from user_user_account uua,user ur where ur.id_ = uua.user_id_) u on u.user_account_id_ = a.id_
+		) t
+		<include refid="select_Where_Clause" />
+	</select>
+	
+	<!-- 用户基本信息 -->
+	<select id="userBasicInfo" resultType="java.util.Map">
+	SELECT 
+		COUNT(id_) AS total ,
+		SUM(CASE WHEN is_employer_ =  1 THEN 1 ELSE 0 END) AS employer , 
+		SUM(CASE WHEN is_contractor_ = 1 THEN 1 ELSE 0 END) AS contractor ,
+		SUM(CASE WHEN is_contractor_ = 1 AND is_employer_ = 1 THEN 1 ELSE 0 END) AS employerAndContractor,
+		SUM(CASE WHEN is_contractor_ = 1 or is_employer_ = 1 THEN 1 ELSE 0 END) AS employerOrContractor,
+		SUM(CASE WHEN is_contractor_ != 1 AND is_employer_ != 1 THEN 1 ELSE 0 END) AS notActive,
+		SUM(CASE WHEN is_employer_ = 1 AND type_ = 2 THEN 1 ELSE 0 END) AS companyOfEmployer,
+		SUM(CASE WHEN is_employer_ = 1 AND type_ = 1 THEN 1 ELSE 0 END) AS personalOfEmployer,
+		SUM(CASE WHEN is_contractor_ = 1 AND type_ = 2 THEN 1 ELSE 0 END) AS companyOfContractor,
+		SUM(CASE WHEN is_contractor_ = 1 AND type_ = 1 THEN 1 ELSE 0 END) AS personalOfContractor,
+		SUM(CASE WHEN certification_status_ = 2 THEN 1 ELSE 0 END) AS certification
+	FROM 
+		user_account ua
+	<where>
+		<if test="params.beginDate != null and params.beginDate != ''">
+		<![CDATA[ua.created_at_ >= STR_TO_DATE( #{params.beginDate} ,'%Y-%m-%d')]]>
+		</if>
+		<if test="params.endDate != null and params.endDate != ''">
+		AND <![CDATA[ua.created_at_ <= STR_TO_DATE( #{params.endDate} ,'%Y-%m-%d')]]>
+		</if>
+	</where>
+	</select>
+	
+	<!-- 发过包的发包方 -->
+	<select id="operationalEmployer" resultType="java.util.Map">
+	SELECT COUNT(DISTINCT emp.user_account_id_) AS operationalEmployer FROM (
+		SELECT user_account_id_ FROM project 
+		<where>
+			<if test="params.beginDate != null and params.beginDate != ''">
+			<![CDATA[project.created_at_ >= STR_TO_DATE( #{params.beginDate} ,'%Y-%m-%d')]]>
+			</if>
+			<if test="params.endDate != null and params.endDate != ''">
+			AND <![CDATA[project.created_at_ <= STR_TO_DATE( #{params.endDate} ,'%Y-%m-%d')]]>
+			</if>
+		</where>
+		UNION ALL
+		SELECT user_account_id_ FROM reward
+		<where>
+			<if test="params.beginDate != null and params.beginDate != ''">
+			<![CDATA[reward.created_at_ >= STR_TO_DATE( #{params.beginDate} ,'%Y-%m-%d')]]>
+			</if>
+			<if test="params.endDate != null and params.endDate != ''">
+			AND <![CDATA[reward.created_at_ <= STR_TO_DATE( #{params.endDate} ,'%Y-%m-%d')]]>
+			</if>
+		</where>
+	) emp;
+	</select>
+	
+	<!-- 接过包的接包方 -->
+	<select id="operationalContractor" resultType="java.util.Map">
+	SELECT COUNT(DISTINCT con.user_account_id_) AS operationalContractor FROM (
+		SELECT contractor_account_id_ AS user_account_id_ FROM project_contract 
+		<where>
+			<if test="params.beginDate != null and params.beginDate != ''">
+			<![CDATA[project_contract.created_at_ >= STR_TO_DATE( #{params.beginDate} ,'%Y-%m-%d')]]>
+			</if>
+			<if test="params.endDate != null and params.endDate != ''">
+			AND <![CDATA[project_contract.created_at_ <= STR_TO_DATE( #{params.endDate} ,'%Y-%m-%d')]]>
+			</if>
+		</where>
+		UNION ALL
+		SELECT user_account_id_ FROM reward 
+		<where>
+			status_ = 3 		
+			<if test="params.beginDate != null and params.beginDate != ''">
+			AND <![CDATA[reward.created_at_ >= STR_TO_DATE( #{params.beginDate} ,'%Y-%m-%d')]]>
+			</if>
+			<if test="params.endDate != null and params.endDate != ''">
+			AND <![CDATA[reward.created_at_ <= STR_TO_DATE( #{params.endDate} ,'%Y-%m-%d')]]>
+			</if>
+		</where> 
+	) con;
+	</select>
+	
+	<!-- 竞标过的接包方 -->
+	<select id="biddedContractor" resultType="java.util.Map">
+	SELECT COUNT(DISTINCT con.user_account_id_) AS biddedContractor FROM (
+		SELECT user_account_id_ AS user_account_id_ FROM project_apply 
+		<where>
+			<if test="params.beginDate != null and params.beginDate != ''">
+			<![CDATA[project_apply.created_at_ >= STR_TO_DATE( #{params.beginDate} ,'%Y-%m-%d')]]>
+			</if>
+			<if test="params.endDate != null and params.endDate != ''">
+			AND <![CDATA[project_apply.created_at_ <= STR_TO_DATE( #{params.endDate} ,'%Y-%m-%d')]]>
+			</if>
+		</where>
+		UNION ALL
+		SELECT user_account_id_ FROM reward_apply 
+		<where>
+			<if test="params.beginDate != null and params.beginDate != ''">
+			AND <![CDATA[reward_apply.created_at_ >= STR_TO_DATE( #{params.beginDate} ,'%Y-%m-%d')]]>
+			</if>
+			<if test="params.endDate != null and params.endDate != ''">
+			AND <![CDATA[reward_apply.created_at_ <= STR_TO_DATE( #{params.endDate} ,'%Y-%m-%d')]]>
+			</if>
+		</where> 
+	) con;
+	</select>
+	
+	<!-- 未激活用户总数统计 -->
+	<select id="userUnActive" resultType="java.util.Map">
+	SELECT 
+		SUM(CASE WHEN uua.id_ IS NULL THEN 1 ELSE 0 END) AS unActive
+	FROM 
+		user AS u
+	LEFT JOIN 
+		user_user_account AS uua ON u.id_ = uua.user_id_
+	WHERE
+	 	1=1
+	 	<if test="params.beginDate != null and params.beginDate != ''">
+			 AND <![CDATA[ u.created_at_ >= STR_TO_DATE( #{params.beginDate} ,'%Y-%m-%d')]]>
+		</if>
+		<if test="params.endDate != null and params.endDate != ''">
+			AND <![CDATA[u.created_at_ <= STR_TO_DATE( #{params.endDate} ,'%Y-%m-%d')]]>
+		</if>
+	</select>
+	
+	<!--新增激活用户统计 -->
+	<select id="userAccountNew" resultType="java.util.Map">
+	SELECT 
+		<include refid="date_calc">
+			<property name="dateField" value="created_at_"/>
+		</include>
+		SUM(CASE WHEN u.is_employer_ =  1 THEN 1 ELSE 0 END) AS employer , 
+		SUM(CASE WHEN u.is_contractor_ = 1 THEN 1 ELSE 0 END) AS contractor 
+	FROM 
+		user_account AS u
+	WHERE
+	 	1=1
+	 	<include refid="date_condition">
+	 		<property name="dateField" value="created_at_"/>
+	 	</include>
+	GROUP BY 
+		<include refid="date_group">
+			<property name="dateField" value="created_at_"/>
+		</include>	
+	ORDER BY
+		date ASC	
+	</select>		
+	
+	<!--  新增未激活用户统计 -->
+	<select id="userNew" resultType="java.util.Map">
+	SELECT 
+		<include refid="date_calc">
+			<property name="dateField" value="created_at_"/>
+		</include>
+		SUM(CASE WHEN uua.id_ IS NULL THEN 1 ELSE 0 END) AS unActive
+	FROM 
+		user AS u
+	LEFT JOIN 
+		user_user_account AS uua ON u.id_ = uua.user_id_
+	WHERE
+	 	1=1
+	 	<include refid="date_condition">
+	 		<property name="dateField" value="created_at_"/>
+	 	</include>
+	GROUP BY 
+		<include refid="date_group">
+			<property name="dateField" value="created_at_"/>
+		</include>	
+	ORDER BY
+		date ASC	
+	</select>
+	
+	<!--  用户发包方趋势统计 -->
+	<select id="growEmployer" resultType="java.util.Map">
+	SELECT 
+		<include refid="date_calc">
+			<property name="dateField" value="be_employer_time_"/>
+		</include>
+		SUM(CASE WHEN is_employer_ =  1 THEN 1 ELSE 0 END) AS employer , 
+		SUM(CASE WHEN is_employer_ = 1 AND type_ = 2 THEN 1 ELSE 0 END) AS companyOfEmployer,
+		SUM(CASE WHEN is_employer_ = 1 AND type_ = 1 THEN 1 ELSE 0 END) AS personalOfEmployer
+	FROM 
+		user_account u
+	WHERE 1=1
+		<if test="params.beginDate != null and params.beginDate != ''">
+			<![CDATA[ AND DATE(u.be_employer_time_) >= STR_TO_DATE( #{params.beginDate} ,'%Y-%m-%d')]]>
+		</if>
+		<if test="params.endDate != null and params.endDate != ''">
+			<![CDATA[ AND DATE(u.be_employer_time_) <= STR_TO_DATE( #{params.endDate} ,'%Y-%m-%d')]]>
+		</if>
+	GROUP BY 
+		<include refid="date_group">
+			<property name="dateField" value="be_employer_time_"/>
+		</include>	
+	ORDER BY
+		date ASC	
+	</select>
+	
+	<!-- 用户接包方趋势 -->
+	<select id="growContractor" resultType="java.util.Map">
+	SELECT 
+		<include refid="date_calc">
+			<property name="dateField" value="be_contractor_time_"/>
+		</include>
+		SUM(CASE WHEN is_contractor_ = 1 THEN 1 ELSE 0 END) AS contractor ,
+		SUM(CASE WHEN is_contractor_ = 1 AND type_ = 2 THEN 1 ELSE 0 END) AS companyOfContractor,
+		SUM(CASE WHEN is_contractor_ = 1 AND type_ = 1 THEN 1 ELSE 0 END) AS personalOfContractor
+	FROM 
+		user_account u
+	WHERE is_contractor_ = 1
+		<if test="params.beginDate != null and params.beginDate != ''">
+			<![CDATA[ AND DATE(u.be_contractor_time_) >= STR_TO_DATE( #{params.beginDate} ,'%Y-%m-%d')]]>
+		</if>
+		<if test="params.endDate != null and params.endDate != ''">
+			<![CDATA[ AND DATE(u.be_contractor_time_) <= STR_TO_DATE( #{params.endDate} ,'%Y-%m-%d')]]>
+		</if>
+	GROUP BY 
+		<include refid="date_group">
+			<property name="dateField" value="be_contractor_time_"/>
+		</include>	
+	ORDER BY
+		date ASC	
+	</select>
+	
+	
+	<!-- 用户帐户趋势 -->
+	<select id="growUserAccount" resultType="java.util.Map">
+	SELECT 
+		<include refid="date_calc">
+			<property name="dateField" value="created_at_"/>
+		</include>
+		count(*) as total 
+	FROM 
+		user_account u
+	WHERE 1=1
+		<if test="params.beginDate != null and params.beginDate != ''">
+			<![CDATA[ AND DATE(u.created_at_) >= STR_TO_DATE( #{params.beginDate} ,'%Y-%m-%d')]]>
+		</if>
+		<if test="params.endDate != null and params.endDate != ''">
+			<![CDATA[ AND DATE(u.created_at_) <= STR_TO_DATE( #{params.endDate} ,'%Y-%m-%d')]]>
+		</if>
+	GROUP BY 
+		<include refid="date_group">
+			<property name="dateField" value="created_at_"/>
+		</include>	
+	ORDER BY
+		date ASC	
+	</select>
+	
+	
+	<!-- 指定日期前的接包方数量 -->
+	<select id="contractorCountOfBeforeDate" resultType="java.util.Map">
+	SELECT 
+		SUM(CASE WHEN is_contractor_ = 1 THEN 1 ELSE 0 END) AS contractor ,
+		SUM(CASE WHEN is_contractor_ = 1 AND type_ = 2 THEN 1 ELSE 0 END) AS companyOfContractor,
+		SUM(CASE WHEN is_contractor_ = 1 AND type_ = 1 THEN 1 ELSE 0 END) AS personalOfContractor
+	FROM 
+		user_account u
+	WHERE 1=1
+		<if test="params.beginDate != null and params.beginDate != ''">
+			<![CDATA[ AND DATE(u.be_contractor_time_) < STR_TO_DATE( #{params.beginDate} ,'%Y-%m-%d')]]>
+		</if>
+	</select>
+	
+	<!-- 指定日期前的发包方数量 -->
+	<select id="employerCountOfBeforeDate" resultType="java.util.Map">
+	SELECT 
+		SUM(CASE WHEN is_employer_ =  1 THEN 1 ELSE 0 END) AS employer , 
+		SUM(CASE WHEN is_employer_ = 1 AND type_ = 2 THEN 1 ELSE 0 END) AS companyOfEmployer,
+		SUM(CASE WHEN is_employer_ = 1 AND type_ = 1 THEN 1 ELSE 0 END) AS personalOfEmployer
+	FROM 
+		user_account u
+	WHERE 1=1
+		<if test="params.beginDate != null and params.beginDate != ''">
+			<![CDATA[ AND DATE(u.be_employer_time_) < STR_TO_DATE( #{params.beginDate} ,'%Y-%m-%d')]]>
+		</if>
+	</select>
+	
+</mapper>

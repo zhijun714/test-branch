@@ -1,0 +1,16 @@
+eureka:
+    client:
+        serviceUrl:
+            defaultZone: http://${RUNNING_ENVIRONMENT:dev}.zb.foreveross.com:8344/eureka
+spring: 
+    application:
+        name: bi-app
+    profiles:
+        active: ${RUNNING_ENVIRONMENT:dev}
+    cloud:
+        config:
+            discovery:
+                enabled: true
+                serviceId: config-server
+    thymeleaf:
+        cache: false

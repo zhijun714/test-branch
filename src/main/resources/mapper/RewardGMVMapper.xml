@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.oschina.zb.bi.app.mapper.RewardGMVMapper">
+	<sql id="date_calc">
+		<if test="params.dateLevel==1"> <!-- 按年份查询 -->
+			CONCAT(YEAR(r.status_last_time_), '年') AS date,
+		</if>
+		<if test="params.dateLevel==2"> <!-- 按照季度查询 -->
+			CONCAT(YEAR(r.status_last_time_), '年第', CEIL((MONTH(r.status_last_time_))/3), '季度') AS date,
+		</if>
+		<if test="params.dateLevel==3"> <!-- 按照月份查询 -->
+			CONCAT(YEAR(r.status_last_time_), '年', MONTH(r.status_last_time_), '月') AS date,
+		</if>
+	</sql>
+	
+	<sql id="date_condition">
+		<if test="params.beginDate!=null and params.beginDate!=''">
+			<![CDATA[ AND r.status_last_time_ >= STR_TO_DATE( #{params.beginDate} ,'%Y-%m')]]>
+		</if>
+		<if test="params.endDate!=null and params.endDate!=''">
+			<![CDATA[ AND r.status_last_time_ <= STR_TO_DATE( #{params.endDate},'%Y-%m')]]>
+		</if>
+	</sql>
+	
+	<sql id="date_group">
+		YEAR (r.status_last_time_)
+		<if test="params.dateLevel==1">	
+		</if>	
+		<if test="params.dateLevel==2">
+		,CEIL(MONTH(r.status_last_time_) / 3 )
+		</if>	
+		<if test="params.dateLevel==3">
+		,MONTH (r.status_last_time_)
+		</if>
+	</sql>
+	
+	<sql id="date_order">
+		date ASC
+	</sql>
+	
+	<!-- 平台交易额统计-托管总额部分-->
+	<select id="transactionHostedMoney" resultType="java.util.Map">
+		SELECT
+			<if test="params.dateLevel==1">
+			CONCAT(YEAR (r.bounty_hosting_time_),'年') AS date,
+			</if>	
+			<if test="params.dateLevel==2">
+			CONCAT(YEAR (r.bounty_hosting_time_),'年第',CEIL(MONTH(r.bounty_hosting_time_)/ 3 ),'季度') AS date,
+			</if>	
+			<if test="params.dateLevel==3">
+			CONCAT(YEAR (r.bounty_hosting_time_),'年',MONTH (r.bounty_hosting_time_),'月') AS date,
+			</if>			
+			IFNULL(ROUND(SUM(r.bounty_) / 100,2),0) AS hostedMoney
+		FROM
+			reward AS r
+		WHERE 
+			r.bounty_hosting_status_=2
+			AND r.bounty_hosting_time_ IS NOT NULL
+			AND <![CDATA[ r.bounty_hosting_time_ >= STR_TO_DATE( #{params.beginDate} ,'%Y-%m') ]]>
+			AND <![CDATA[ r.bounty_hosting_time_ <  STR_TO_DATE( #{params.endDate} ,'%Y-%m') ]]>
+		GROUP BY
+			YEAR (r.bounty_hosting_time_)
+			<if test="params.dateLevel==1">	
+			</if>	
+			<if test="params.dateLevel==2">
+			,CEIL(MONTH(r.bounty_hosting_time_)/ 3 )
+			</if>	
+			<if test="params.dateLevel==3">
+			,MONTH (r.bounty_hosting_time_)
+			</if>	
+		ORDER BY
+			<include refid="date_order"/>	
+	</select>
+	
+	<!-- 平台交易额统计-验收通过部分-->
+	<select id="transactionCompleteMoney" resultType="java.util.Map">
+		SELECT
+			<include refid="date_calc"/>		
+			IFNULL(ROUND(SUM(r.bounty_) / 100,2),0) AS completeMoney
+		FROM
+			reward AS r
+		WHERE 
+			r.status_=4
+			AND r.status_last_time_ IS NOT NULL
+			<include refid="date_condition"/>
+		GROUP BY
+			<include refid="date_group"/>	
+		ORDER BY
+			<include refid="date_order"/>	
+	</select>	
+
+	<!-- 平台交易额统计-退款总额部分-->
+	<select id="transactionTerminatedMoney" resultType="java.util.Map">
+		SELECT
+			<include refid="date_calc"/>
+			IFNULL(ROUND(SUM(r.bounty_) / 100,2),0) AS terminatedMoney
+		FROM
+			reward AS r
+		WHERE 
+			r.status_ = 9
+			AND r.status_last_time_ IS NOT NULL
+			<include refid="date_condition"/>
+		GROUP BY
+			<include refid="date_group"/>	
+		ORDER BY
+			<include refid="date_order"/>	
+	</select>
+	
+</mapper>

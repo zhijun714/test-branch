@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.oschina.zb.bi.app.mapper.TracksRecordMapper">
+	<!-- 来源分析 -->
+	<select id="sourceAnalysis" resultType="java.util.Map">
+SELECT
+	<if test="params.isGroup"> 
+		<if test="params.from!=null"> 
+			IFNULL(from_,'-') AS 'from',
+		</if>
+		<if test="params.from==null"> 
+			IFNULL(SUBSTRING_INDEX(SUBSTRING_INDEX(SUBSTRING_INDEX(from_,'//',-1),'/',1),'.',-2),'-') AS 'from',
+		</if>		
+	</if>	
+	<if test="!params.isGroup">
+		'-' AS 'from',
+	</if>
+	count(id_) AS PV,
+	count(DISTINCT user_account_id_) AS UV,
+	count(DISTINCT ip_) AS IP	
+FROM
+	comm_tracks_record
+WHERE
+	type_ = 1
+	<if test="params.platfrom!=null"> 
+		AND platfrom_ = #{params.platfrom}
+	</if>
+	<if test="params.from==null"> 
+		<if test="params.typeUrl==1"> 
+			AND
+			<foreach collection="params.searchEngines" item="url" open="(" close=")"
+			separator=" AND ">
+			 from_ NOT LIKE '%${url}%'
+			</foreach>
+		</if>
+		<if test="params.typeUrl==2"> 
+			AND from_ IS NULL
+		</if>
+		<if test="params.typeUrl==3"> 
+			AND
+			<foreach collection="params.searchEngines" item="url" open="(" close=")"
+			separator=" OR ">
+			from_ LIKE '%${url}%'
+			</foreach>
+		</if>
+	</if>
+	<if test="params.from!=null"> 
+		AND from_ LIKE '%${params.from}%'
+	</if>
+	<if test="params.beginDate!=null"> 
+		<![CDATA[ AND TO_DAYS(created_at_) >=TO_DAYS(#{params.beginDate}) ]]>
+	</if>
+	<if test="params.endDate!=null"> 
+		<![CDATA[ AND TO_DAYS(created_at_) <=TO_DAYS(#{params.endDate}) ]]>
+	</if>
+	<if test="params.isGroup">
+GROUP BY
+		<if test="params.from==null"> 
+			SUBSTRING_INDEX(SUBSTRING_INDEX(SUBSTRING_INDEX(from_,'//',-1),'/',1),'.',-2)
+		</if>
+		<if test="params.from!=null"> 
+			from_
+		</if>		
+	</if>
+	</select>
+</mapper>
