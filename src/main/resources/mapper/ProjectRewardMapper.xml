@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.oschina.zb.bi.app.mapper.ProjectRewardMapper">	
+	<sql id="date_calc" >
+		<if test="params.dateLevel==1"> <!-- 按年份查询 -->
+			CONCAT(YEAR(p.${dateField}), '年') AS 'date',
+		</if>
+		<if test="params.dateLevel==2"> <!-- 按照季度查询 -->
+			CONCAT(YEAR(p.${dateField}), '年第', CEIL((MONTH(p.${dateField}))/3), '季度') AS 'date',
+		</if>
+		<if test="params.dateLevel==3"> <!-- 按照月份查询 -->
+			CONCAT(YEAR(p.${dateField}), '年', MONTH(p.${dateField}), '月') AS 'date',
+		</if>
+		<if test="params.dateLevel==4"> <!-- 按照周查询 -->
+			CONCAT(YEAR(p.${dateField}), '年', MONTH(p.${dateField}), '月',DAYOFMONTH(p.${dateField}),'日') AS 'date',
+		</if>
+		<if test="params.dateLevel==5"> <!-- 按照日查询 -->
+			CONCAT(YEAR(p.${dateField}), '年', MONTH(p.${dateField}), '月',DAYOFMONTH(p.${dateField}),'日') AS 'date',
+		</if>
+		<if test="params.dateLevel==6"> <!-- 按照小时查询 -->
+			CONCAT(HOUR(p.${dateField}),'时') AS 'date',
+		</if>
+	</sql>
+	
+	<sql id="date_condition_day">
+		<if test="params.beginDate!=null and params.beginDate!=''">
+			 and p.${dateField} <![CDATA[ >=  STR_TO_DATE( #{params.beginDate} ,'%Y-%m-%d')]]>
+		</if>
+		<if test="params.endDate!=null and params.endDate!=''">
+			and p.${dateField} <![CDATA[  <= STR_TO_DATE( #{params.endDate},'%Y-%m-%d')]]>
+		</if>
+	</sql>		
+	
+	<sql id="date_group">
+		YEAR (p.${dateField})
+		<if test="params.dateLevel==1">	
+		</if>	
+		<if test="params.dateLevel==2">
+		,CEIL(MONTH(p.${dateField}) / 3 )
+		</if>	
+		<if test="params.dateLevel==3">
+		,MONTH (p.${dateField})
+		</if>
+		<if test="params.dateLevel==4">
+		,MONTH(p.${dateField}),WEEK (p.${dateField})
+		</if>
+		<if test="params.dateLevel==5">
+		,MONTH (p.${dateField}),DAYOFMONTH(p.${dateField})
+		</if>
+		<if test="params.dateLevel==6">
+		,MONTH (p.${dateField}),DAYOFMONTH(p.${dateField}),HOUR(p.${dateField})
+		</if>
+	</sql>	
+	
+	<!-- 项目类型统计 -->
+	<select id="projectType" resultType="java.util.Map">
+		SELECT
+			<include refid="date_calc">
+				<property name="dateField" value="created_at_"/>
+			</include>
+			IFNULL(SUM(IF(ps.skill_='移动应用',1,0)),0) AS 'mobile',
+			IFNULL(SUM(IF(ps.skill_='H5应用',1,0)),0) AS 'h5',
+			IFNULL(SUM(IF(ps.skill_='微信应用',1,0)),0) AS 'weixin',
+			IFNULL(SUM(IF(ps.skill_='企业应用',1,0)),0) AS 'company',
+			IFNULL(SUM(IF(ps.skill_='WEB应用',1,0)),0) AS 'web',
+			IFNULL(SUM(IF(ps.skill_='工具应用',1,0)),0) AS 'tool',
+			IFNULL(SUM(IF(ps.skill_='桌面应用',1,0)),0) AS 'desktop',	
+			IFNULL(SUM(IF(ps.skill_='嵌入式应用',1,0)),0) AS 'embedded',
+			IFNULL(SUM(IF(ps.skill_='游戏开发',1,0)),0) AS 'game',
+			IFNULL(SUM(IF(ps.skill_='设计',1,0)),0) AS 'design',
+			IFNULL(SUM(IF(ps.skill_='培训咨询',1,0)),0) AS 'train',
+			IFNULL(SUM(IF(ps.skill_='其它',1,0)),0) AS 'other'		
+		FROM
+			project AS p	
+		INNER JOIN 
+			project_skill AS ps ON ps.project_id_=p.id_ AND ps.type_=1
+		WHERE
+		1=1
+		<include refid="date_condition_day">
+			<property name="dateField" value="created_at_"/>
+		</include>		
+	</select>
+	
+	<!-- 悬赏类型统计数量 -->
+	<select id="rewardType" resultType="java.util.Map">
+		SELECT
+			<include refid="date_calc">
+				<property name="dateField" value="created_at_"/>
+			</include>
+			IFNULL	( SUM( IF ( rs.`skill_` = '移动应用', 1, 0 ) ), 0 ) AS 'mobile',
+			IFNULL	( SUM( IF ( rs.`skill_` = 'H5应用', 1, 0 ) ), 0 ) AS 'h5',
+			IFNULL	( SUM( IF ( rs.`skill_` = '微信应用', 1, 0 ) ), 0 ) AS 'weixin',
+			IFNULL	( SUM( IF ( rs.`skill_` = '企业应用', 1, 0 ) ), 0 ) AS 'company',
+			IFNULL	( SUM( IF ( rs.`skill_` = 'WEB应用', 1, 0 ) ), 0 ) AS 'web',
+			IFNULL	( SUM( IF ( rs.`skill_` = '工具应用', 1, 0 ) ), 0 ) AS 'tool',
+			IFNULL	( SUM( IF ( rs.`skill_` = '桌面应用', 1, 0 ) ), 0 ) AS 'desktop',
+			IFNULL	( SUM( IF ( rs.`skill_` = '嵌入式应用', 1, 0 ) ), 0 ) AS 'embedded',
+			IFNULL	( SUM( IF ( rs.`skill_` = '游戏开发', 1, 0 ) ), 0 ) AS 'game',
+			IFNULL	( SUM( IF ( rs.`skill_` = '设计', 1, 0 ) ), 0 ) AS 'design',
+			IFNULL	( SUM( IF ( rs.`skill_` = '培训咨询', 1, 0 ) ), 0 ) AS 'train',
+			IFNULL	( SUM( IF ( rs.`skill_` = '其它', 1, 0 ) ), 0 ) AS 'other'	
+		FROM
+			reward AS p
+			INNER JOIN reward_skill AS rs	ON p.`id_` = rs.`reward_id_` 	AND rs.`type_` = 1
+		WHERE 
+			1=1
+			<include refid="date_condition_day">
+				<property name="dateField" value="created_at_"/>
+			</include>		
+	</select>	
+	
+	<!-- 新增项目统计 -->
+	<select id="projectNew" resultType="java.util.Map">
+		SELECT
+			<include refid="date_calc">
+				<property name="dateField" value="created_at_"/>
+			</include> 
+			COUNT(p.id_) AS projectCount
+		FROM project AS p
+		WHERE 
+			1=1
+			<include refid="date_condition_day">
+				<property name="dateField" value="created_at_"/>
+			</include>
+		GROUP BY 
+			<include refid="date_group">
+				<property name="dateField" value="created_at_"/>
+			</include>
+		ORDER BY date ASC
+	</select>	
+	
+	<!-- 新增悬赏统计 -->
+	<select id="rewardNew" resultType="java.util.Map">
+		SELECT
+			<include refid="date_calc">
+				<property name="dateField" value="created_at_"/>
+			</include>
+			COUNT(p.id_) AS rewardCount
+		FROM reward as p
+		WHERE 
+			1=1
+			<include refid="date_condition_day">
+				<property name="dateField" value="created_at_"/>
+			</include>
+		GROUP BY 
+			<include refid="date_group">
+				<property name="dateField" value="created_at_"/>
+			</include>
+		ORDER BY date ASC
+	</select>	
+	
+</mapper>

@@ -1,0 +1,368 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.oschina.zb.bi.app.mapper.OMSProjectRewardMapper">	
+	
+	<!-- 项目统计列表-发包方 -->
+	<select id="totalListByEmployer" resultType="java.util.Map">
+		SELECT
+			p.id_ AS id,
+			p.name_ AS name,
+			ps.skill_ AS skill,
+			CONCAT(ROUND(p.budget_min_ / 100),'-',ROUND(p.budget_max_ / 100)) AS budget,
+			CONCAT(p.cycle_name_) AS cycle,
+			IFNULL(SUBSTRING(p.publish_time_,1,16),'未发布') AS publishTime,
+			CASE p.status_
+				WHEN 1 THEN '草稿'
+				WHEN 2 THEN '待托管'
+				WHEN 3 THEN '竞标中'
+				WHEN 4 THEN '实施中'
+				WHEN 5 THEN '已完成'
+				WHEN 6 THEN '仲裁中'
+				WHEN 7 THEN '已终止'
+				WHEN 8 THEN '已关闭'
+				ELSE '状态错误' END AS status,
+			1 AS type
+		FROM project AS p
+		INNER JOIN project_skill AS ps ON p.id_ = ps.project_id_ AND ps.type_ = 1
+		WHERE p.user_account_id_= #{params.userAccountId}
+		UNION ALL
+		SELECT
+			r.id_ AS id,
+			r.name_ AS name,
+			rs.skill_ AS skill,
+			ROUND(r.bounty_ / 100) AS budget,
+			CONCAT(r.expected_duration_, '天') AS cycle,
+			IFNULL(SUBSTRING(r.publish_time_,1,16),'未发布') AS publishTime,
+			CASE r.status_
+				WHEN 1 THEN '草稿'
+				WHEN 2 THEN '待托管'
+				WHEN 3 THEN '进行中'
+				WHEN 4 THEN '已完成'
+				WHEN 6 THEN '仲裁中'
+				WHEN 7 THEN '已下架'
+				WHEN 8 THEN '已关闭'
+				WHEN 9 THEN '已终止'
+				ELSE '状态错误' END AS status,
+				2 AS type
+		FROM reward AS r
+		INNER JOIN reward_skill AS rs ON r.id_ = rs.reward_id_	AND rs.type_ = 1
+		WHERE r.user_account_id_= #{params.userAccountId}
+		ORDER BY ${params.sort}  ${params.dir}		
+	</select>		
+	
+	<!-- 项目统计总数-发包方 -->
+	<select id="totalCountByEmployer" resultType="java.util.Map">	
+	SELECT		
+		IFNULL(SUM(CASE WHEN t.waitHosted>0 THEN 1 ELSE 0 END),0) AS 'waitHosted',
+		IFNULL(SUM(CASE WHEN t.bid>0 THEN 1 ELSE 0 END),0) AS 'bid',
+		IFNULL(SUM(CASE WHEN t.implement>0 THEN 1 ELSE 0 END),0) AS 'implement',
+		IFNULL(SUM(CASE WHEN t.completed>0 THEN 1 ELSE 0 END),0) AS 'completed',
+		IFNULL(SUM(CASE WHEN t.close>0 THEN 1 ELSE 0 END),0) AS 'close',
+		IFNULL(SUM(t.money),0) AS 'money'
+	FROM (
+		SELECT
+			SUM( CASE WHEN p.status_ IN (1,2) THEN 1 ELSE 0 END ) AS 'waitHosted',
+			SUM( CASE WHEN p.status_ =3 THEN 1 ELSE 0 END ) AS 'bid',
+			SUM( CASE WHEN p.status_ =4 THEN 1 ELSE 0 END ) AS 'implement',
+			SUM( CASE WHEN p.status_ =5 THEN 1 ELSE 0 END ) AS 'completed',
+			SUM( CASE WHEN p.status_ IN (7,8) THEN 1 ELSE 0 END ) AS 'close',
+			ROUND(SUM(CASE WHEN pwp.hosting_status_ = 2 THEN pwp.money_ ELSE 0 END)/100) AS 'money'
+		FROM 	project AS p
+		LEFT JOIN project_work_plan AS pwp ON p.id_=pwp.project_id_
+		WHERE p.user_account_id_ =  #{params.userAccountId}
+		GROUP BY p.id_
+		UNION ALL
+		SELECT
+			SUM(CASE WHEN r.status_ =2 THEN 1 ELSE 0 END ) AS 'waitHosted',
+			SUM(CASE WHEN r.status_ =3 THEN 1 ELSE 0 END ) AS 'bid',
+			0 AS 'implement',
+			SUM(CASE WHEN r.status_ =4 THEN 1 ELSE 0 END ) AS 'completed',	
+			SUM(CASE WHEN r.status_  IN (8,9) THEN 1 ELSE 0 END ) AS 'close',
+			ROUND(SUM(CASE WHEN r.bounty_hosting_status_ = 2 THEN r.bounty_ ELSE 0 END)/100) AS 'money'
+		FROM reward AS r
+		WHERE r.user_account_id_ =  #{params.userAccountId}
+		GROUP BY r.id_
+	) AS t
+	</select>		
+
+	<!-- 项目统计列表-接包方 -->
+	<select id="totalListByContractor" resultType="java.util.Map">
+		SELECT
+			p.id_ AS id,
+			1 AS type,
+			p.name_ AS name,
+			p.project_no_ AS no,
+			ua.nickname_ AS nickname,
+			CASE p.status_
+				WHEN 1 THEN '草稿'
+				WHEN 2 THEN '待托管'
+				WHEN 3 THEN '竞标中'
+				WHEN 4 THEN '实施中'
+				WHEN 5 THEN '已完成'
+				WHEN 6 THEN '仲裁中'
+				WHEN 7 THEN '已终止'
+				WHEN 8 THEN '已关闭'
+				ELSE '状态错误' END AS status,
+			IFNULL(GROUP_CONCAT(DISTINCT CASE ps.type_ WHEN 1 THEN ps.skill_ END),'-') AS applicationArea,
+			IFNULL(GROUP_CONCAT(DISTINCT CASE ps.type_ WHEN 2 THEN ps.skill_ END),'-') AS projectType,
+			IFNULL(GROUP_CONCAT(DISTINCT CASE ps.type_ WHEN 3 THEN ps.skill_ END),'-') AS developmentLanguage,
+			IFNULL(GROUP_CONCAT(DISTINCT CASE ps.type_ WHEN 4 THEN ps.skill_ END),'-') AS developmentSkills,
+			IFNULL(GROUP_CONCAT(DISTINCT CASE ps.type_ WHEN 5 THEN ps.skill_ END),'-') AS productMiddleware,
+			IFNULL(GROUP_CONCAT(DISTINCT CASE ps.type_ WHEN 6 THEN ps.skill_ END),'-') AS role,
+			ROUND(pc.money_ / 100) AS money,		
+			ROUND(SUM(DISTINCT CASE WHEN psh.id_ IS NOT NULL THEN pwp.money_ ELSE 0 END )/ 100) AS appendMoney		
+		FROM project AS p
+		INNER JOIN user_account AS ua ON p.user_account_id_ = ua.id_
+		INNER JOIN project_skill AS ps ON p.id_ = ps.project_id_
+		INNER JOIN project_apply AS pa ON p.id_ = pa.project_id_ AND pa.status_ = 3
+		INNER JOIN project_contract AS pc ON pa.id_ = pc.apply_id_ 
+		INNER JOIN project_work_plan AS pwp ON pwp.contract_id_ = pc.id_ AND pwp.status_ > 2 AND pwp.status_ != 9
+		LEFT JOIN project_status_history AS psh ON pwp.id_ = psh.buss_id_ AND psh.buss_type_ = 3 AND psh.status_ = 2
+		WHERE pc.contractor_account_id_= #{params.userAccountId}			
+		GROUP BY pc.id_
+		UNION ALL
+		SELECT
+			r.id_ AS id,
+			2 AS type,
+			r.name_ AS name,
+			r.reward_no_ AS no,
+			ua.nickname_ AS nickname,
+			CASE r.status_
+				WHEN 1 THEN '草稿'  
+				WHEN 2 THEN '待托管'
+				WHEN 3 THEN '进行中'
+				WHEN 4 THEN '已完成'
+				WHEN 6 THEN '仲裁中'
+				WHEN 7 THEN '已下架'
+				WHEN 8 THEN '已关闭'
+				WHEN 9 THEN '已终止'
+				ELSE '状态错误' END AS status,
+			IFNULL(GROUP_CONCAT(DISTINCT CASE rs.type_ WHEN 1 THEN rs.skill_ END),'-') AS applicationArea,
+			IFNULL(GROUP_CONCAT(DISTINCT CASE rs.type_ WHEN 2 THEN rs.skill_ END),'-') AS projectType,
+			IFNULL(GROUP_CONCAT(DISTINCT CASE rs.type_ WHEN 3 THEN rs.skill_ END),'-') AS developmentLanguage,
+			IFNULL(GROUP_CONCAT(DISTINCT CASE rs.type_ WHEN 4 THEN rs.skill_ END),'-') AS developmentSkills,
+			IFNULL(GROUP_CONCAT(DISTINCT CASE rs.type_ WHEN 5 THEN rs.skill_ END),'-') AS productMiddleware,
+			IFNULL(GROUP_CONCAT(DISTINCT CASE rs.type_ WHEN 6 THEN rs.skill_ END),'-') AS role,
+			ROUND(r.bounty_ / 100) AS money,
+			0 AS appendMoney
+		FROM reward AS r
+		INNER JOIN user_account AS ua ON r.user_account_id_ = ua.id_
+		INNER JOIN reward_skill AS rs ON r.id_ = rs.reward_id_	AND rs.type_ = 1
+		INNER JOIN reward_apply AS ra ON r.id_ = ra.reward_id_ AND ra.status_ = 3
+		WHERE ra.user_account_id_= #{params.userAccountId}
+		GROUP BY ra.id_
+		ORDER BY ${params.sort}  ${params.dir}		
+	</select>			
+	
+	<!-- 项目统计总数-接包方 -->
+	<select id="totalCountByContractor" resultType="java.util.Map">
+	SELECT 
+		IFNULL(COUNT(t.total),0) AS 'total',
+		IFNULL(SUM(CASE WHEN t.winning > 0 THEN 1 ELSE 0 END),0) AS 'winning',
+		IFNULL(SUM(CASE WHEN t.completed > 0 THEN 1 ELSE 0 END),0) AS 'completed',
+		IFNULL(SUM(t.money),0) AS 'money',
+		CONCAT(IFNULL(ROUND(SUM(CASE WHEN t.winning > 0 THEN 1 ELSE 0 END)/COUNT(t.total)*100),0),'%') AS 'winRate'
+	FROM (
+		SELECT
+			COUNT(pa.id_) AS 'total',
+			SUM(CASE WHEN pa.status_ =3 THEN 1 ELSE 0 END ) AS 'winning',
+			SUM(CASE WHEN p.status_ =5 AND pc.id_ IS NOT NULL THEN 1 ELSE 0 END ) AS 'completed',	
+			ROUND(SUM(CASE WHEN pwp.money_thaw_ = 2 THEN pwp.money_ ELSE 0 END)/100) AS 'money'
+		FROM 	project AS p
+		INNER JOIN project_apply AS pa ON p.id_=pa.project_id_ AND pa.user_account_id_ = #{params.userAccountId}
+		LEFT JOIN project_contract AS pc ON pa.id_ = pc.apply_id_ AND pc.status_ = 3
+		LEFT JOIN project_work_plan AS pwp ON pc.id_=pwp.contract_id_ 		
+		GROUP BY pa.id_
+		UNION ALL
+		SELECT
+			COUNT(r.id_) AS 'total',
+			SUM(CASE WHEN ra.status_ =3 THEN 1 ELSE 0 END ) AS 'winning',
+			SUM(CASE WHEN ra.status_ =3 THEN 1 ELSE 0 END ) AS 'completed',	
+			ROUND(SUM(CASE WHEN ra.status_ = 3 THEN r.bounty_ ELSE 0 END)/100) AS 'money'
+		FROM reward AS r
+		INNER JOIN reward_apply AS ra ON r.id_ = ra.reward_id_ AND ra.user_account_id_ = #{params.userAccountId}
+		GROUP BY ra.id_
+	) AS t
+	</select>		
+	
+	<!-- 项目统计评价部分-接包方发包方通用查询 -->
+	<select id="commentByUser" resultType="java.util.Map">
+		SELECT avg_score_ AS 'comment'
+		FROM comm_comment_avg_score
+		WHERE user_account_id_ =  #{params.userAccountId}
+		AND 
+		<if test="params.isEmployer">
+		role_type_ = 1
+		</if>
+		<if test="!params.isEmployer">
+		role_type_ = 2
+		</if>			
+	</select>		
+	
+	<!-- 用户已推荐项目-列表部分 -->
+	<select id="recommendListByUser" resultType="org.oschina.zb.bi.app.service.dto.HadRecommendReturnDTO">
+	SELECT
+		p.id_ AS id,
+		p.name_ AS name,
+ 		1 AS type,
+		crptu.is_apply_ AS isApply,
+		crptu.is_winning_ AS isWinning,
+		crptu.created_at_ AS createdAt,
+		crptu.created_by_ AS managerId,
+		ps.skill_ AS skill
+	FROM	comm_recommend_project_to_user AS crptu
+	INNER JOIN project AS p ON crptu.buss_id_ = p.id_ AND crptu.type_ = 1
+	INNER JOIN project_skill AS ps ON p.id_ = ps.project_id_ AND ps.type_ = 1
+	WHERE crptu.user_account_id_= #{params.userAccountId}
+	GROUP BY p.id_
+	UNION ALL
+	SELECT
+		r.id_ AS id,
+		r.name_ AS name,
+ 		2 AS type,
+		crptu.is_apply_ AS isApply,
+		crptu.is_winning_ AS isWinning,
+		crptu.created_at_ AS createdAt,
+		crptu.created_by_ AS createdBy,
+		rs.skill_ AS skill
+	FROM comm_recommend_project_to_user AS crptu
+	INNER JOIN reward AS r ON crptu.buss_id_ = r.id_ AND crptu.type_ = 2
+	INNER JOIN  reward_skill AS rs ON r.id_ = rs.reward_id_ AND rs.type_ =1
+	WHERE crptu.user_account_id_= #{params.userAccountId}	
+	GROUP BY r.id_
+	ORDER BY ${params.sort}  ${params.dir}		
+	</select>		
+	
+	<!-- 用户已推荐项目-总数部分 -->
+	<select id="recommendCountByUser" resultType="java.util.Map">
+	SELECT
+		IFNULL(COUNT(total),0) AS total,	
+		IFNULL(SUM(CASE WHEN apply > 0 THEN 1 ELSE 0 END),0)  AS 'apply',
+		IFNULL(SUM(CASE WHEN winning > 0 THEN 1 ELSE 0 END),0) AS 'winning',
+		IFNULL(SUM(CASE WHEN complete > 0 THEN 1 ELSE 0 END),0) AS 'complete',
+		IFNULL(SUM(money),0) AS 'money',
+		CONCAT(IFNULL(ROUND(SUM(CASE WHEN apply > 0 THEN 1 ELSE 0 END)/COUNT(total)*100),0),'%') AS 'joinRate'
+	FROM(
+		SELECT
+			SUM(crptu.id_) AS total,	
+			SUM(CASE WHEN crptu.is_apply_ = 1 THEN 1 ELSE 0 END)  as 'apply',
+			SUM(CASE WHEN crptu.is_winning_ = 1 THEN 1 ELSE 0 END) as 'winning',
+			SUM(CASE WHEN p.status_ = 5 THEN 1 ELSE 0 END) as 'complete',
+			ROUND(SUM(CASE WHEN crptu.is_winning_ = 1 THEN pwp.money_ ELSE 0 END)/100) AS 'money'
+		FROM	comm_recommend_project_to_user AS crptu
+		INNER JOIN project AS p ON crptu.buss_id_ = p.id_ AND crptu.type_ = 1	
+		LEFT JOIN project_work_plan AS pwp ON p.id_ = pwp.project_id_ AND pwp.status_ > 2
+		WHERE crptu.user_account_id_= #{params.userAccountId}
+		GROUP BY crptu.buss_id_
+		UNION ALL
+		SELECT	
+			SUM(crptu.id_) AS total,	
+			SUM(CASE WHEN crptu.is_apply_ = 1 THEN 1 ELSE 0 END)  AS 'apply',
+			SUM(CASE WHEN crptu.is_winning_ = 1 THEN 1 ELSE 0 END) AS 'winning',
+			SUM(CASE WHEN r.status_ = 4 THEN 1 ELSE 0 END) AS 'complete',
+			ROUND(SUM(CASE WHEN crptu.is_winning_ = 1 THEN r.bounty_ ELSE 0 END)/100) AS 'money'
+		FROM	comm_recommend_project_to_user AS crptu
+		INNER JOIN reward AS r ON crptu.buss_id_ = r.id_ AND crptu.type_ = 2
+		WHERE crptu.user_account_id_= #{params.userAccountId}
+		GROUP BY crptu.buss_id_
+	) AS t
+	</select>	
+	
+	<!-- 分页查询可推荐给用户的项目 -->
+	<select id="canRecommendList" resultType="org.oschina.zb.bi.app.service.dto.RecommendReturnDTO">
+	 	SELECT
+			*
+		FROM (
+			SELECT
+				p.id_ AS 'id',
+				1 AS 'type',
+				p.name_ AS 'name',
+				p.project_no_ AS 'no',
+				p.publish_time_ AS publishTime,
+				IFNULL(GROUP_CONCAT(DISTINCT CASE ps.type_ WHEN 1 THEN ps.skill_ END),'-') AS applicationArea,
+				IFNULL(GROUP_CONCAT(DISTINCT CASE ps.type_ WHEN 2 THEN ps.skill_ END),'-') AS projectType,
+				IFNULL(GROUP_CONCAT(DISTINCT CASE ps.type_ WHEN 3 THEN ps.skill_ END),'-') AS developmentLanguage,
+				IFNULL(GROUP_CONCAT(DISTINCT CASE ps.type_ WHEN 4 THEN ps.skill_ END),'-') AS developmentSkills,
+				IFNULL(GROUP_CONCAT(DISTINCT CASE ps.type_ WHEN 5 THEN ps.skill_ END),'-') AS productMiddleware,
+				IFNULL(GROUP_CONCAT(DISTINCT CASE ps.type_ WHEN 6 THEN ps.skill_ END),'-') AS role,
+				ua.nickname_ AS nickname
+			FROM project AS p
+			INNER JOIN project_skill AS ps ON p.id_ = ps.project_id_
+			INNER JOIN user_account AS ua ON p.user_account_id_ = ua.id_
+			LEFT JOIN comm_recommend_project_to_user AS crptu ON p.id_=crptu.buss_id_ AND crptu.type_=1 AND crptu.user_account_id_=#{params.userAccountId}
+			WHERE p.status_ = 3 
+			AND crptu.buss_id_ IS NULL
+			AND p.user_account_id_ != #{params.userAccountId}
+			GROUP BY p.id_
+			UNION ALL
+			SELECT
+				r.id_ AS 'id',
+				2 AS 'type',
+				r.name_ AS 'name',
+				r.reward_no_ AS 'no',
+				r.publish_time_ AS publishTime,
+				IFNULL(GROUP_CONCAT(DISTINCT CASE rs.type_ WHEN 1 THEN rs.skill_ END),'-') AS applicationArea,
+				IFNULL(GROUP_CONCAT(DISTINCT CASE rs.type_ WHEN 2 THEN rs.skill_ END),'-') AS projectType,
+				IFNULL(GROUP_CONCAT(DISTINCT CASE rs.type_ WHEN 3 THEN rs.skill_ END),'-') AS developmentLanguage,
+				IFNULL(GROUP_CONCAT(DISTINCT CASE rs.type_ WHEN 4 THEN rs.skill_ END),'-') AS developmentSkills,
+				IFNULL(GROUP_CONCAT(DISTINCT CASE rs.type_ WHEN 5 THEN rs.skill_ END),'-') AS productMiddleware,
+				IFNULL(GROUP_CONCAT(DISTINCT CASE rs.type_ WHEN 6 THEN rs.skill_ END),'-') AS role,
+				ua.nickname_ AS nickname
+			FROM reward AS r
+			INNER JOIN reward_skill AS rs ON r.id_ = rs.reward_id_
+			INNER JOIN user_account AS ua ON r.user_account_id_ = ua.id_
+			LEFT JOIN comm_recommend_project_to_user as crptu ON r.id_=crptu.buss_id_ AND crptu.type_=2 AND crptu.user_account_id_= #{params.userAccountId}
+			WHERE r.status_ = 3 
+			AND crptu.buss_id_ IS NULL
+			AND r.user_account_id_ != #{params.userAccountId}
+			GROUP BY r.id_
+		) as t1
+		WHERE 1=1
+	 	<if test="params.type!=null">
+		AND type = #{params.type}
+		</if>
+		<if test="params.no!=null">
+		AND no = #{params.no}
+		</if>
+		<if test="params.name!=null">
+		AND name LIKE CONCAT('%',#{params.name},'%')
+		</if>
+		<if test="params.nickname!=null">
+		AND nickname LIKE CONCAT('%',#{params.nickname},'%')
+		</if>
+		<if test="params.applicationArea!=null">
+		AND applicationArea LIKE CONCAT('%',#{params.applicationArea},'%')
+		</if>
+		<if test="params.projectType!=null">
+		AND projectType LIKE CONCAT('%',#{params.projectType},'%')
+		</if>
+		<if test="params.developmentLanguage!=null">
+		AND developmentLanguage LIKE CONCAT('%',#{params.developmentLanguage},'%')
+		</if>
+		<if test="params.developmentSkills!=null">
+		AND developmentSkills LIKE CONCAT('%',#{params.developmentSkills},'%')
+		</if>
+		<if test="params.productMiddleware!=null">
+		AND productMiddleware LIKE CONCAT('%',#{params.productMiddleware},'%')
+		</if>
+		<if test="params.role!=null">
+		AND role LIKE CONCAT('%',#{params.role},'%')
+		</if>
+		ORDER BY ${params.sort}  ${params.dir}		
+	</select>
+	
+	<select id="checkApplyProject" resultType="int">
+		select count(1) from 
+		project_apply
+		where user_account_id_ = #{userAccountId}
+		and project_id_ = #{projectId}
+	</select>
+	
+	<select id="checkApplyReward" resultType="int">
+		select count(1) from 
+		reward_apply
+		where user_account_id_ = #{userAccountId}
+		and reward_id_ = #{rewardId}
+	</select>
+	
+</mapper>

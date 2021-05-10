@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.oschina.zb.bi.app.mapper.RewardFinishDataMapper">
+	<sql id="date_calc">
+		<if test="params.dateLevel==1"> <!-- 按年份查询 -->
+			CONCAT(YEAR(r.`status_last_time_`), '年') AS 'date',
+		</if>
+		<if test="params.dateLevel==2"> <!-- 按照季度查询 -->
+			CONCAT(YEAR(r.`status_last_time_`), '年第', CEIL((MONTH(r.`status_last_time_`))/3), '季度') AS 'date',
+		</if>
+		<if test="params.dateLevel==3"> <!-- 按照月份查询 -->
+			CONCAT(YEAR(r.`status_last_time_`), '年', MONTH(r.`status_last_time_`), '月') AS 'date',
+		</if>
+	</sql>
+	
+	<sql id="date_condition">
+		<if test="params.beginDate!=null and params.beginDate!=''">
+			<![CDATA[ AND r.status_last_time_ >= STR_TO_DATE( #{params.beginDate} ,'%Y-%m')]]>
+		</if>
+		<if test="params.endDate!=null and params.endDate!=''">
+			<![CDATA[ AND r.status_last_time_ <= STR_TO_DATE( #{params.endDate},'%Y-%m')]]>
+		</if>
+	</sql>
+	
+	<sql id="date_group">
+		YEAR (r.status_last_time_)
+		<if test="params.dateLevel==1">	
+		</if>	
+		<if test="params.dateLevel==2">
+		,CEIL(MONTH(r.status_last_time_) / 3 )
+		</if>	
+		<if test="params.dateLevel==3">
+		,MONTH (r.status_last_time_)
+		</if>
+	</sql>
+	
+	<sql id="date_order">
+		date ASC
+	</sql>
+	
+	<!-- 悬赏类型统计数量 -->
+	<select id="type" resultType="java.util.Map">
+		SELECT
+			<include refid="date_calc"/>
+			IFNULL	( SUM( IF ( rs.`skill_` = '移动应用', 1, 0 ) ), 0 ) AS 'mobile',
+			IFNULL	( SUM( IF ( rs.`skill_` = 'H5应用', 1, 0 ) ), 0 ) AS 'h5',
+			IFNULL	( SUM( IF ( rs.`skill_` = '微信应用', 1, 0 ) ), 0 ) AS 'weixin',
+			IFNULL	( SUM( IF ( rs.`skill_` = '企业应用', 1, 0 ) ), 0 ) AS 'company',
+			IFNULL	( SUM( IF ( rs.`skill_` = 'WEB应用', 1, 0 ) ), 0 ) AS 'web',
+			IFNULL	( SUM( IF ( rs.`skill_` = '工具应用', 1, 0 ) ), 0 ) AS 'tool',
+			IFNULL	( SUM( IF ( rs.`skill_` = '桌面应用', 1, 0 ) ), 0 ) AS 'desktop',
+			IFNULL	( SUM( IF ( rs.`skill_` = '嵌入式应用', 1, 0 ) ), 0 ) AS 'embedded',
+			IFNULL	( SUM( IF ( rs.`skill_` = '游戏开发', 1, 0 ) ), 0 ) AS 'game',
+			IFNULL	( SUM( IF ( rs.`skill_` = '设计', 1, 0 ) ), 0 ) AS 'design',
+			IFNULL	( SUM( IF ( rs.`skill_` = '培训咨询', 1, 0 ) ), 0 ) AS 'train',
+			IFNULL	( SUM( IF ( rs.`skill_` = '其它', 1, 0 ) ), 0 ) AS 'other',
+			IFNULL	( SUM( IF ( ua.`type_` = 1, 1, 0 ) ), 0 ) AS 'personalEmployer',
+			IFNULL	( SUM( IF ( ua.`type_` = 2, 1, 0 ) ), 0 ) AS 'companyEmployer',
+			IFNULL	( SUM( IF ( uaa.`type_` = 1, 1, 0 ) ), 0 ) AS 'personalContractor',
+			IFNULL	( SUM( IF ( uaa.`type_` = 2, 1, 0 ) ), 0 ) AS 'companyContractor'				
+		FROM
+			reward AS r
+			INNER JOIN reward_skill AS rs	ON r.`id_` = rs.`reward_id_` 	AND rs.`type_` = 1
+			LEFT JOIN reward_apply AS ra
+				ON ra.`status_` = 3
+				AND  r.`id_` = ra.`reward_id_`
+			LEFT JOIN user_account AS ua
+				ON r.`user_account_id_` = ua.`id_`
+			LEFT JOIN user_account AS uaa
+				ON ra.`user_account_id_` = uaa.`id_`
+		WHERE
+			r.`status_` IN (4,9)
+			<include refid="date_condition"/>
+		GROUP BY 
+			<include refid="date_group"/>
+		ORDER BY 
+			<include refid="date_order"/>
+	</select>	
+	
+	<!--悬赏进度统计-->
+	<select id="schedule" resultType="java.util.Map">
+		SELECT
+			<include refid="date_calc"/>
+			<![CDATA[ SUM(IF(r.status_last_time_ >= date_add(r.publish_time_ ,interval r.expected_duration_ day) AND r.status_last_time_ <= date_add(r.publish_time_ ,interval (r.expected_duration_+7) day),1,0)) AS normalCount, ]]>
+			<![CDATA[ SUM(IF(r.status_last_time_ < date_add(r.publish_time_ ,interval r.expected_duration_ day),1,0)) AS beforeCount, ]]>
+			<![CDATA[ SUM(IF(r.status_last_time_ > date_add(r.publish_time_ ,interval (r.expected_duration_+7) day),1,0)) AS laterCount ]]>
+		FROM 
+			reward AS r
+		WHERE
+			r.status_ in (4,9) 
+			<include refid="date_condition"/>
+		GROUP BY 
+			<include refid="date_group"/>	
+		ORDER BY
+			<include refid="date_order"/>	
+	</select>
+	
+	<!-- 悬赏金额统计-已托管总额 -->
+	<select id="hostedTotalMoney" resultType="java.util.Map">
+		SELECT  
+			<include refid="date_calc"/>
+		    IFNULL(ROUND(SUM(r.`bounty_`) / 100,2),0) as hostedTotalMoney		     
+		FROM 
+			reward r
+		WHERE
+			r.`status_` IN (4, 9) <!-- 4 悬赏正常完成   9 悬赏终止 -->
+			<include refid="date_condition"/>
+		GROUP BY 
+		<include refid="date_group"/>
+	</select>
+	
+	<!-- 悬赏金额统计-已解冻总额 -->
+	<select id="withdrawTotalMoney" resultType="java.util.Map">
+		SELECT  
+		 	<include refid="date_calc"/> 	
+		     IFNULL(ROUND(SUM(r.`bounty_`) / 100,2),0) as withdrawTotalMoney		    
+		FROM 
+			reward r
+		WHERE
+			r.`status_` = 4 <!-- 4 悬赏正常完成  -->
+			<include refid="date_condition"/>
+		GROUP BY 
+		<include refid="date_group"/>
+	</select>	
+	
+	<!-- 悬赏平均值-项目单价 -->
+	<select id="averageProjectPrice" resultType="java.util.Map">
+		SELECT  
+			<include refid="date_calc"/>
+		     ROUND(SUM(r.`bounty_`) /100/ COUNT(*), 2) as avgPrice		     
+		FROM 
+			reward r
+		WHERE
+			r.`status_` IN (4, 9) <!-- 4 悬赏正常完成   9 悬赏终止 -->
+			<include refid="date_condition"/>
+		GROUP BY
+		<include refid="date_group"/>
+	</select>
+	
+	<!-- 悬赏平均值-竞标周期 -->
+	<select id="averageApplyCycle" resultType="java.util.Map">
+		SELECT 
+			<include refid="date_calc"/>
+			ROUND(SUM(TO_DAYS(r.`status_last_time_`)-TO_DAYS(r.`publish_time_`)) / COUNT(*), 1) as avgApplyCycle		
+		FROM 
+			reward r
+		WHERE 
+			r.`status_` IN (4, 9) <!-- 4 悬赏正常完成   9 悬赏终止 -->
+			<include refid="date_condition"/>
+		GROUP BY 
+		<include refid="date_group"/>
+	</select>
+	
+	<!-- 悬赏平均值-报名数量 -->
+	<select id="averageApplyCount" resultType="java.util.Map">
+		SELECT 
+			<include refid="date_calc"/>
+			ROUND(SUM(r.apply_count_) / COUNT(*), 1) as avgApplyCount			
+		FROM 
+			reward r 
+		WHERE 
+			r.`status_` IN (4, 9) <!-- 4 悬赏正常完成   9 悬赏终止 -->
+			<include refid="date_condition"/>
+		GROUP BY 
+		<include refid="date_group"/>
+	</select>
+	
+	<!-- 悬赏平均值-方案数量 -->
+	<select id="averageSchemeCount" resultType="java.util.Map">
+		SELECT 
+			<include refid="date_calc"/>
+			ROUND(COUNT(*) / COUNT(DISTINCT (r.id_)), 1) as avgSchemeCount		
+		FROM 
+			reward r 
+				INNER JOIN reward_apply a 
+					ON r.id_ = a.`reward_id_`
+		WHERE 
+			r.`status_` IN (4, 9) <!-- 4 悬赏正常完成   9 悬赏终止 -->
+			AND a.`status_` IN (2, 3, 4) <!-- 查询已提交方案的数据 2已提交方案   3已中标   4已落标    -->
+			<include refid="date_condition"/>
+		GROUP BY 
+		<include refid="date_group"/>
+	</select>
+	
+	<!-- 悬赏评价统计-->
+	<select id="comment" resultType="java.util.Map">
+		SELECT
+			<include refid="date_calc"/>
+			SUM(IF(cci.score_ = 5 ,1,0)) AS good,
+			SUM(IF(cci.score_ = 4 or cci.score_ = 3 ,1,0)) AS normal,
+			SUM(IF(cci.score_ = 2 or cci.score_ = 1 ,1,0)) AS bad
+		FROM 
+			reward AS r
+		INNER JOIN 
+			comm_comment AS cc ON cc.buss_id_ =r.id_ AND cc.buss_type_ = 2
+		INNER JOIN 
+			comm_comment_item AS cci ON cc.id_ =cci.comment_id_ AND cci.title_ = '工作质量'
+		WHERE
+			r.status_ in (4,9) 
+			<include refid="date_condition"/>
+		GROUP BY 
+			<include refid="date_group"/>
+		ORDER BY
+			<include refid="date_order"/>	
+	</select>
+	
+</mapper>

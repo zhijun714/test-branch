@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.oschina.zb.bi.app.mapper.ProjectGMVMapper">	
+	<!-- 平台交易额统计-托管保证金部分-->
+	<select id="transactionDepositMoney" resultType="java.util.Map">
+		SELECT
+			<if test="params.dateLevel==1">
+			CONCAT(YEAR (p.publish_time_),'年') AS date,
+			</if>	
+			<if test="params.dateLevel==2">
+			CONCAT(YEAR (p.publish_time_),'年第',CEIL(MONTH(p.publish_time_) / 3 ) ,'季度') AS date,
+			</if>	
+			<if test="params.dateLevel==3">
+			CONCAT(YEAR (p.publish_time_),'年',MONTH (p.publish_time_),'月') AS date,
+			</if>			
+			IFNULL(ROUND(SUM(p.deposit_money_) / 100,2),0) AS depositMoney
+		FROM
+			project AS p
+		WHERE 
+			p.publish_time_ IS NOT NULL
+			AND <![CDATA[ p.publish_time_ >= STR_TO_DATE( #{params.beginDate} ,'%Y-%m') ]]>
+			AND <![CDATA[ p.publish_time_ <  STR_TO_DATE( #{params.endDate},'%Y-%m') ]]>
+			<if test="params.isInternal!=null">
+			AND p.is_internal_ = #{params.isInternal}
+			</if>	
+		GROUP BY
+			YEAR (p.publish_time_)
+			<if test="params.dateLevel==1">	
+			</if>	
+			<if test="params.dateLevel==2">
+			,CEIL(MONTH(p.publish_time_) / 3 )
+			</if>	
+			<if test="params.dateLevel==3">
+			,MONTH (p.publish_time_)
+			</if>	
+		ORDER BY
+			date ASC
+	</select>	
+	
+	<!-- 平台交易额统计-合同总额部分-->
+	<select id="transactionContractMoney" resultType="java.util.Map">
+		SELECT
+			<if test="params.dateLevel==1">
+			CONCAT(YEAR (pc.contract_sign_time_),'年') AS date,
+			</if>	
+			<if test="params.dateLevel==2">
+			CONCAT(YEAR (pc.contract_sign_time_),'年第',CEIL(MONTH(pc.contract_sign_time_) / 3 ),'季度') AS date,
+			</if>	
+			<if test="params.dateLevel==3">
+			CONCAT(YEAR (pc.contract_sign_time_),'年',MONTH (pc.contract_sign_time_),'月') AS date,
+			</if>			
+			IFNULL(ROUND(SUM(pc.money_)/100,2),0) AS contractMoney
+		FROM
+			project_contract AS pc
+		INNER JOIN 
+			project AS p ON pc.project_id_=p.id_
+		WHERE
+			pc.contract_sign_time_ IS NOT NULL
+			AND <![CDATA[ pc.contract_sign_time_ >= STR_TO_DATE( #{params.beginDate} ,'%Y-%m') ]]>
+			AND <![CDATA[ pc.contract_sign_time_ < STR_TO_DATE( #{params.endDate} ,'%Y-%m') ]]>
+			AND <![CDATA[ (pc.status_=3 or pc.status_=6) ]]>
+			<if test="params.isInternal!=null">
+			AND p.is_internal_ = #{params.isInternal}
+			</if>	
+		GROUP BY
+			YEAR (pc.contract_sign_time_)
+			<if test="params.dateLevel==1">	
+			</if>	
+			<if test="params.dateLevel==2">
+			,CEIL(MONTH(pc.contract_sign_time_) / 3 )
+			</if>	
+			<if test="params.dateLevel==3">
+			,MONTH (pc.contract_sign_time_)
+			</if>	
+		ORDER BY
+			date ASC
+	</select>
+	
+	<!-- 平台交易额统计-托管总额部分-->
+	<select id="transactionHostedMoney" resultType="java.util.Map">
+		SELECT
+			<if test="params.dateLevel==1">
+			CONCAT(YEAR (pwp.hosting_time_),'年') AS date,
+			</if>	
+			<if test="params.dateLevel==2">
+			CONCAT(YEAR (pwp.hosting_time_),'年第',CEIL(MONTH(pwp.hosting_time_) / 3 ),'季度') AS date,
+			</if>	
+			<if test="params.dateLevel==3">
+			CONCAT(YEAR (pwp.hosting_time_),'年',MONTH (pwp.hosting_time_),'月') AS date,
+			</if>	
+			IFNULL(ROUND(SUM(pwp.money_)/100,2),0) AS hostedMoney
+		FROM
+			project_work_plan AS pwp
+		INNER JOIN 
+			project AS p ON pwp.project_id_=p.id_
+		WHERE
+			hosting_status_ = 2
+			AND pwp.hosting_time_ IS NOT NULL
+			AND <![CDATA[ pwp.hosting_time_ >= STR_TO_DATE( #{params.beginDate} ,'%Y-%m') ]]>
+			AND <![CDATA[ pwp.hosting_time_ < STR_TO_DATE( #{params.endDate} ,'%Y-%m') ]]>
+			<if test="params.isInternal!=null">
+			AND p.is_internal_ = #{params.isInternal}
+			</if>
+		GROUP BY
+			YEAR (pwp.hosting_time_)
+			<if test="params.dateLevel==1">	
+			</if>	
+			<if test="params.dateLevel==2">
+			,CEIL(MONTH(pwp.hosting_time_) / 3 )
+			</if>	
+			<if test="params.dateLevel==3">
+			,MONTH (pwp.hosting_time_)
+			</if>	
+		ORDER BY
+			date ASC
+	</select>
+	
+	<!-- 平台交易额统计-验收通过总额部分-->
+	<select id="transactionCompleteMoney" resultType="java.util.Map">
+		SELECT
+			<if test="params.dateLevel==1">
+			CONCAT(YEAR (psh.created_at_),'年') AS date,
+			</if>	
+			<if test="params.dateLevel==2">
+			CONCAT(YEAR (psh.created_at_),'年第',CEIL(MONTH(psh.created_at_) / 3 ),'季度') AS date,
+			</if>	
+			<if test="params.dateLevel==3">
+			CONCAT(YEAR (psh.created_at_),'年',MONTH (psh.created_at_),'月') AS date,
+			</if>	
+			IFNULL(ROUND(SUM(pwp.money_)/100,2),0) AS completeMoney
+		FROM
+			project_work_plan AS pwp
+		INNER JOIN 
+			project AS p ON pwp.project_id_=p.id_
+		INNER JOIN 
+			project_status_history AS psh ON psh.buss_type_ = 3 AND psh.buss_id_ = pwp.id_ AND psh.status_ = 7
+		WHERE
+			psh.created_at_ IS NOT NULL
+			AND <![CDATA[ psh.created_at_ >= STR_TO_DATE( #{params.beginDate} ,'%Y-%m') ]]>
+			AND <![CDATA[ psh.created_at_ < STR_TO_DATE( #{params.endDate} ,'%Y-%m') ]]>
+			<if test="params.isInternal!=null">
+			AND p.is_internal_ = #{params.isInternal}
+			</if>
+		GROUP BY
+			YEAR (psh.created_at_)
+			<if test="params.dateLevel==1">	
+			</if>	
+			<if test="params.dateLevel==2">
+			,CEIL(MONTH(psh.created_at_) / 3 )
+			</if>	
+			<if test="params.dateLevel==3">
+			,MONTH (psh.created_at_)
+			</if>	
+		ORDER BY
+			date ASC
+	</select>
+	
+	<!-- 平台交易额统计-已解冻总额部分-->
+	<select id="transactionThawedMoney" resultType="java.util.Map">
+		SELECT
+			<if test="params.dateLevel==1">
+			CONCAT(YEAR (pwp.money_thaw_time_),'年') AS date,
+			</if>	
+			<if test="params.dateLevel==2">
+			CONCAT(YEAR (pwp.money_thaw_time_),'年第',CEIL(MONTH(pwp.money_thaw_time_) / 3 ),'季度') AS date,
+			</if>	
+			<if test="params.dateLevel==3">
+			CONCAT(YEAR (pwp.money_thaw_time_),'年',MONTH (pwp.money_thaw_time_),'月') AS date,
+			</if>	
+			IFNULL(ROUND(SUM(pwp.money_)/100,2),0) AS thawedMoney
+		FROM
+			project_work_plan AS pwp
+		INNER JOIN 
+			project AS p ON pwp.project_id_=p.id_
+		WHERE
+			money_thaw_ = 2
+			AND	pwp.money_thaw_time_ IS NOT NULL
+			AND <![CDATA[ pwp.money_thaw_time_ >= STR_TO_DATE( #{params.beginDate} ,'%Y-%m') ]]>
+			AND <![CDATA[ pwp.money_thaw_time_ < STR_TO_DATE( #{params.endDate} ,'%Y-%m') ]]>
+			<if test="params.isInternal!=null">
+			AND p.is_internal_ = #{params.isInternal}
+			</if>
+		GROUP BY
+			YEAR (pwp.money_thaw_time_)
+			<if test="params.dateLevel==1">	
+			</if>	
+			<if test="params.dateLevel==2">
+			,CEIL(MONTH(pwp.money_thaw_time_) / 3 )
+			</if>	
+			<if test="params.dateLevel==3">
+			,MONTH (pwp.money_thaw_time_)
+			</if>	
+		ORDER BY
+			date ASC	
+	</select>
+	
+	<!-- 平台交易额统计-退款总额部分-->
+	<select id="transactionTerminatedMoney" resultType="java.util.Map">
+		SELECT
+			<if test="params.dateLevel==1">
+			CONCAT(YEAR (pwp.status_last_time_),'年') AS date,
+			</if>	
+			<if test="params.dateLevel==2">
+			CONCAT(YEAR (pwp.status_last_time_),'年第',CEIL(MONTH(pwp.status_last_time_) / 3 ),'季度') AS date,
+			</if>	
+			<if test="params.dateLevel==3">
+			CONCAT(YEAR (pwp.status_last_time_),'年',MONTH (pwp.status_last_time_),'月') AS date,
+			</if>
+			IFNULL(ROUND(SUM(pwp.money_)/100,2),0) AS terminatedMoney
+		FROM
+			project_work_plan AS pwp 
+		INNER JOIN 
+			project AS p ON pwp.project_id_=p.id_
+		WHERE
+			pwp.status_ = 10 
+			AND pwp.hosting_status_ = 2
+			AND pwp.status_last_time_ IS NOT NULL
+			AND <![CDATA[ pwp.status_last_time_ >= STR_TO_DATE( #{params.beginDate} ,'%Y-%m') ]]>
+			AND <![CDATA[ pwp.status_last_time_ < STR_TO_DATE( #{params.endDate} ,'%Y-%m') ]]>
+			<if test="params.isInternal!=null">
+			AND p.is_internal_ = #{params.isInternal}
+			</if>
+		GROUP BY
+			YEAR (pwp.status_last_time_)
+			<if test="params.dateLevel==1">	
+			</if>	
+			<if test="params.dateLevel==2">
+			,CEIL(MONTH(pwp.status_last_time_)/ 3 )
+			</if>	
+			<if test="params.dateLevel==3">
+			,MONTH (pwp.status_last_time_)
+			</if>	
+		ORDER BY
+			date ASC	
+	</select>	
+	
+	<!-- 平台交易额统计-追加工作计划款部分-->
+	<select id="transactionAppendMoney" resultType="java.util.Map">
+		SELECT
+			<if test="params.dateLevel==1">
+			CONCAT(YEAR (pwph.created_at_),'年') AS date,
+			</if>	
+			<if test="params.dateLevel==2">
+			CONCAT(YEAR (pwph.created_at_),'年第',CEIL(MONTH(pwph.created_at_) / 3 ),'季度') AS date,
+			</if>	
+			<if test="params.dateLevel==3">
+			CONCAT(YEAR (pwph.created_at_),'年',MONTH (pwph.created_at_),'月') AS date,
+			</if>
+			IFNULL(ROUND(SUM(pwp.money_)/100,2),0) AS appendMoney
+		FROM
+			 project_work_plan_history AS pwph 
+		INNER JOIN project_work_plan AS pwp ON pwph.work_plan_id_=pwp.id_
+		INNER JOIN project AS p ON pwp.project_id_ = p.id_
+		WHERE		
+			<![CDATA[ pwph.created_at_ >= STR_TO_DATE( #{params.beginDate} ,'%Y-%m') ]]>
+			AND <![CDATA[ pwph.created_at_ < STR_TO_DATE( #{params.endDate} ,'%Y-%m') ]]>
+			<if test="params.isInternal!=null">
+			AND p.is_internal_ = #{params.isInternal}
+			</if>
+		GROUP BY
+			YEAR (pwph.created_at_)
+			<if test="params.dateLevel==1">	
+			</if>
+			<if test="params.dateLevel==2">
+			,CEIL(MONTH(pwph.created_at_)/ 3 )
+			</if>
+			<if test="params.dateLevel==3">
+			,MONTH (pwph.created_at_)
+			</if>
+		ORDER BY
+			date ASC	
+	</select>	
+</mapper>

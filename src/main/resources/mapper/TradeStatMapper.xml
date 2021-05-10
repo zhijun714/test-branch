@@ -1,0 +1,292 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.oschina.zb.bi.app.mapper.TradeStatMapper">
+
+	<select id="findProjGMVGroupByDate" resultType="org.oschina.zb.bi.app.entity.model.TradeStatTrend">
+		select
+		    DATE_FORMAT(plan.created_at_,'%Y-%m-%d') as date, 
+		    sum(plan.money_) as amount
+		from 
+		    project_work_plan as plan,
+		    project as proj
+		<where>
+		    plan.project_id_ = proj.id_
+		    <if test="startTime != null and startTime != ''">
+		       <![CDATA[and plan.created_at_ >= #{startTime}]]> 
+		    </if>
+		    <if test="endTime != null and endTime != ''">
+		       <![CDATA[and plan.created_at_ <= #{endTime}]]> 
+		    </if>
+		     <if test="isInternal != null">
+		       and proj.is_internal_ = #{isInternal}
+		    </if>
+		</where>
+        group by
+            date 
+        order by 
+            plan.created_at_
+	</select>
+	
+	
+	<select id="findProjDepositGroupByDate" resultType="org.oschina.zb.bi.app.entity.model.TradeStatTrend">
+		select
+		    DATE_FORMAT(deposit_hosting_time_,'%Y-%m-%d') as date, 
+		    sum(deposit_money_) as amount
+		from 
+		    project
+		<where>
+		    deposit_hosting_status_ = 2
+		    <if test="startTime != null and startTime != ''">
+		       <![CDATA[and deposit_hosting_time_ >= #{startTime}]]> 
+		    </if>
+		    <if test="endTime != null and endTime != ''">
+		       <![CDATA[and deposit_hosting_time_ <= #{endTime}]]> 
+		    </if>
+		     <if test="isInternal != null">
+		       and is_internal_ = #{isInternal}
+		    </if>
+		</where>
+        group by
+            date 
+        order by 
+            deposit_hosting_time_
+	</select>
+	
+	<select id="findProjWorkPlanDepositGroupByDate" resultType="org.oschina.zb.bi.app.entity.model.TradeStatTrend">
+		select
+		    DATE_FORMAT(plan.hosting_time_,'%Y-%m-%d') as date, 
+		    sum(plan.money_) as amount
+		from 
+		    project_work_plan as plan,
+		    project as proj
+		<where>
+		     plan.project_id_ = proj.id_
+		     and
+		     plan.hosting_status_ = 2 
+		    <if test="startTime != null and startTime != ''">
+		       <![CDATA[and plan.hosting_time_ >= #{startTime}]]> 
+		    </if>
+		    <if test="endTime != null and endTime != ''">
+		       <![CDATA[and plan.hosting_time_ <= #{endTime}]]> 
+		    </if>
+		     <if test="isInternal != null">
+		       and proj.is_internal_ = #{isInternal}
+		    </if>
+		</where>
+        group by
+            date 
+        order by 
+            plan.hosting_time_
+	</select>
+	
+	<select id="findProjAcceptGroupByDate" resultType="org.oschina.zb.bi.app.entity.model.TradeStatTrend">
+		select
+		    DATE_FORMAT(plan.created_at_,'%Y-%m-%d') as date, 
+		    sum(plan.money_) as amount
+		from 
+		    project_work_plan as plan,
+		    project as proj
+		<where>
+		    plan.project_id_ = proj.id_
+		    and
+		    plan.status_ in (7, 8)
+		    <if test="startTime != null and startTime != ''">
+		       <![CDATA[and plan.created_at_ >= #{startTime}]]> 
+		    </if>
+		    <if test="endTime != null and endTime != ''">
+		       <![CDATA[and plan.created_at_ <= #{endTime}]]> 
+		    </if>
+		     <if test="isInternal != null">
+		       and proj.is_internal_ = #{isInternal}
+		    </if>
+		</where>
+        group by
+            date 
+        order by 
+            plan.created_at_
+	</select>
+	
+	<select id="findProjUnfreezeGroupByDate" resultType="org.oschina.zb.bi.app.entity.model.TradeStatTrend">
+		select
+		    DATE_FORMAT(plan.money_thaw_time_,'%Y-%m-%d') as date, 
+		    sum(plan.money_) as amount
+		from 
+		    project_work_plan as plan,
+		    project as proj
+		<where>
+		    plan.project_id_ = proj.id_
+		    and
+		    plan.status_ in (8)
+		    <if test="startTime != null and startTime != ''">
+		       <![CDATA[and plan.money_thaw_time_ >= #{startTime}]]> 
+		    </if>
+		    <if test="endTime != null and endTime != ''">
+		       <![CDATA[and plan.money_thaw_time_ <= #{endTime}]]> 
+		    </if>
+		     <if test="isInternal != null">
+		       and proj.is_internal_ = #{isInternal}
+		    </if>
+		</where>
+        group by
+            date 
+        order by 
+            plan.money_thaw_time_
+	</select>
+	
+	
+	<select id="findRewardGMVGroupByDate" resultType="org.oschina.zb.bi.app.entity.model.TradeStatTrend">
+		select
+		    DATE_FORMAT(bounty_hosting_time_,'%Y-%m-%d') as date, 
+		    sum(bounty_) as amount
+		from 
+		    reward
+		<where>
+		     bounty_hosting_status_ = 2
+		     and
+		     status_ in (3, 4)
+		    <if test="startTime != null and startTime != ''">
+		       <![CDATA[and bounty_hosting_time_ >= #{startTime}]]> 
+		    </if>
+		    <if test="endTime != null and endTime != ''">
+		       <![CDATA[and bounty_hosting_time_ <= #{endTime}]]> 
+		    </if>
+		     <if test="isInternal != null">
+		       and is_internal_ = #{isInternal}
+		    </if>
+		</where>
+        group by
+            date 
+        order by 
+            bounty_hosting_time_
+	</select>
+	
+	<select id="findRewardPayGroupByDate" resultType="org.oschina.zb.bi.app.entity.model.TradeStatTrend">
+		select
+		    DATE_FORMAT(created_at_,'%Y-%m-%d') as date, 
+		    sum(bounty_) as amount
+		from 
+		    reward
+		<where>
+		     status_ = 4
+		    <if test="startTime != null and startTime != ''">
+		       <![CDATA[and created_at_ >= #{startTime}]]> 
+		    </if>
+		    <if test="endTime != null and endTime != ''">
+		       <![CDATA[and created_at_ <= #{endTime}]]> 
+		    </if>
+		     <if test="isInternal != null">
+		       and is_internal_ = #{isInternal}
+		    </if>
+		</where>
+        group by
+            date 
+        order by 
+            created_at_
+	</select>
+	
+	<select id="getTotalProjGMV" resultType="java.lang.Long">
+		select
+		   ifnull(sum(money_),0) as amount
+		from 
+		    project_work_plan  
+	</select>
+	
+	<!-- 查询总的项目托管金额 -->
+	<select id="getTotalProjDeposit" resultType="java.lang.Long">
+	    select
+		    ifnull(sum(deposit_money_),0) as amount
+		from 
+		    project
+		<where>
+		    deposit_hosting_status_ = 2
+		</where> 
+	</select>
+	
+	<!-- 查询总的项目阶段托管金额 -->
+	<select id="getTotalProjWorkPlanDeposit" resultType="java.lang.Long">
+	    select
+		    ifnull(sum(money_),0) as amount
+		from 
+		    project_work_plan
+		<where>
+		    hosting_status_ = 2
+		</where> 
+	</select>
+	
+	<!-- 查询总的阶段验收总额-->
+	<select id="getTotalProjWorkPlanAccept" resultType="java.lang.Long">
+	    select
+		    sum(money_) as amount
+		from 
+		    project_work_plan
+		<where>
+		    status_ in (7, 8)
+		</where>
+	</select>
+	
+	<!-- 查询总的阶段解冻总额-->
+	<select id="getTotalProjWorkPlanUnfreeze" resultType="java.lang.Long">
+	    select
+		    sum(money_) as amount
+		from 
+		    project_work_plan
+		<where>
+		    status_ in (8)
+		</where>
+	</select>
+	
+	<!-- 查询总的悬赏GMV(托管) -->
+	<select id="getTotalRewardGMV" resultType="java.lang.Long">
+		select
+		    sum(bounty_) as amount
+		from 
+		    reward
+		<where>
+		     bounty_hosting_status_ = 2
+		     and
+		     status_ in (3, 4)
+		</where>
+     </select>
+     
+     <!-- 查询总的悬赏支付金额 -->
+     <select id="getTotalRewardPay" resultType="java.lang.Long">
+		select
+		    sum(bounty_) as amount
+		from 
+		    reward
+		<where>
+		     status_ = 4
+		</where>
+	</select>
+	
+     <!-- 查询总支出金额 -->
+     <select id="getTotalOutAmount" resultType="java.lang.Long">
+		select
+		    sum(amount_)
+		from 
+		    fund_transaction
+		<where>
+		    trade_status_ = 2
+		    and
+		    trade_category_ = 4
+		    and 
+		    biz_category_ in (26, 29, 33)
+		</where>
+	</select>
+	
+	  <!-- 查询总收入金额 -->
+     <select id="getTotalInAmount" resultType="java.lang.Long">
+		select
+		    sum(amount_)
+		from 
+		    fund_transaction
+		<where>
+		    trade_status_ = 2
+		    and
+		    trade_category_ = 3
+		    and 
+		    biz_category_ in (45, 49)
+		</where>
+	</select>
+	
+</mapper>
